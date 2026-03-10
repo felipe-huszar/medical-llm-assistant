@@ -151,18 +151,12 @@ class TestLLMReasoningNode:
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = '{"test": true}'
 
-        with patch("src.graph.nodes.get_llm", return_value=mock_llm):
-            # Need to import get_llm inside the function, patch the module-level import
-            import src.graph.nodes as nodes_mod
-            original = getattr(nodes_mod, 'get_llm', None)
-            try:
-                nodes_mod.get_llm = lambda: mock_llm
-                state = _base_state(prompt="prompt")
-                result = llm_reasoning(state, llm=None)
-                assert result["raw_response"] == '{"test": true}'
-            finally:
-                if original:
-                    nodes_mod.get_llm = original
+        import src.graph.nodes as nodes_mod
+        monkeypatch.setattr(nodes_mod, "get_llm", lambda: mock_llm)
+
+        state = _base_state(prompt="prompt")
+        result = llm_reasoning(state, llm=None)
+        assert result["raw_response"] == '{"test": true}'
 
 
 class TestSafetyGateNode:

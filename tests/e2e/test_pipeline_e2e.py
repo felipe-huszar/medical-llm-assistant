@@ -51,22 +51,14 @@ class TestNewPatientFlow:
     def test_new_patient_full_flow(self, pipeline):
         """Complete flow: new patient CPF -> consultation -> structured response."""
         from src.graph.state import ClinicalState
+        from src.graph.pipeline import run_consultation
 
-        initial_state: ClinicalState = {
-            "cpf": "NEW.PAT.001-01",
-            "doctor_question": "Paciente com dor abdominal ao evacuar há 2 semanas. Quais diagnósticos?",
-            "patient_profile": {"nome": "Test Patient", "idade": 35, "sexo": "M", "peso": 70},
-            "is_new_patient": False,
-            "consultation_history": [],
-            "prompt": "",
-            "raw_response": "",
-            "safety_passed": False,
-            "sources": [],
-            "final_answer": "",
-            "needs_escalation": False,
-        }
-
-        result = pipeline.invoke(initial_state)
+        # Use run_consultation so patient_profile is saved before pipeline runs
+        result = run_consultation(
+            cpf="NEW.PAT.001-01",
+            doctor_question="Paciente com dor abdominal ao evacuar há 2 semanas. Quais diagnósticos?",
+            patient_profile={"nome": "Test Patient", "idade": 35, "sexo": "M", "peso": 70},
+        )
 
         # Assertions
         assert result["is_new_patient"] is True  # detected as new
