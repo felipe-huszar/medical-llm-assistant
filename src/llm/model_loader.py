@@ -1,6 +1,9 @@
 """
-model_loader.py - Loads a LoRA-fine-tuned model from Google Drive (Colab only).
+model_loader.py - Loads the LoRA-fine-tuned Mistral adapter.
 Only used when USE_MOCK_LLM=false.
+
+Base model: unsloth/mistral-7b-bnb-4bit
+Adapter: trained with PEFT/LoRA via unsloth (r=16, alpha=16)
 """
 
 import os
@@ -9,54 +12,55 @@ from typing import Any
 
 def load_lora_model(model_path: str) -> Any:
     """
-    Load a LoRA-fine-tuned model from the given path.
-    Requires: transformers, peft, torch, accelerate.
+    Load the Mistral LoRA adapter using unsloth (matches training environment).
 
-    Returns a callable that accepts a prompt string and returns a string.
+    Args:
+        model_path: local path to adapter folder (adapter_config.json + adapter_model.safetensors)
+
+    Returns:
+        A callable LLM object with .invoke(prompt) -> str
     """
     try:
-        import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-        from peft import PeftModel
+        from unsloth import FastLanguageModel
     except ImportError as e:
         raise ImportError(
-            "Dependências de modelo não instaladas. "
-            "Execute: pip install transformers peft torch accelerate"
+            "unsloth não instalado. Execute: pip install unsloth"
         ) from e
 
-    base_model_id = os.environ.get("BASE_MODEL_ID", "mistralai/Mistral-7B-Instruct-v0.1")
+    base_model_id = os.environ.get("BASE_MODEL_ID", "unsloth/mistral-7b-bnb-4bit")
 
-    print(f"[model_loader] Carregando tokenizer de {base_model_id}...")
-    tokenizer = AutoTokenizer.from_pretrained(base_model_id, trust_remote_code=True)
-
-    print(f"[model_loader] Carregando modelo base...")
-    base_model = AutoModelForCausalLM.from_pretrained(
-        base_model_id,
-        torch_dtype=torch.float16,
-        device_map="auto",
-        trust_remote_code=True,
+    print(f"[model_loader] Carregando base model: {base_model_id}")
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name=base_model_id,
+        max_seq_length=2048,
+        load_in_4bit=True,
     )
 
-    print(f"[model_loader] Aplicando LoRA adapter de {model_path}...")
-    model = PeftModel.from_pretrained(base_model, model_path)
-    model.eval()
+    print(f"[model_loader] Aplicando LoRA adapter: {model_path}")
+    from peft import PeftModel
+    model = PeftModel.from_pretrained(model, model_path)
+    FastLanguageModel.for_inference(model)
 
-    pipe = pipeline(
-        "text-generation",
-        model=model,
-        tokenizer=tokenizer,
-        max_new_tokens=512,
-        temperature=0.1,
-        do_sample=True,
-    )
+    print("[model_loader] Modelo pronto para inferência.")
 
     class _LoRALLM:
         def invoke(self, prompt: str) -> str:
-            out = pipe(prompt, return_full_text=False)
-            return out[0]["generated_text"]
+            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+            import torch
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=512,
+                    temperature=0.1,
+                    do_sample=True,
+                    pad_token_id=tokenizer.eos_token_id,
+                )
+            # Retorna só o texto gerado (sem o prompt)
+            input_len = inputs["input_ids"].shape[1]
+            generated = outputs[0][input_len:]
+            return tokenizer.decode(generated, skip_special_tokens=True)
 
         def __call__(self, prompt: str) -> str:
             return self.invoke(prompt)
 
-    print("[model_loader] Modelo carregado com sucesso.")
     return _LoRALLM()
