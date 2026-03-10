@@ -1,0 +1,23 @@
+[
+  {
+    "cpf": "123.456.789-00",
+    "nome": "Maria Silva",
+    "idade": 45,
+    "sexo": "F",
+    "peso": 68
+  },
+  {
+    "cpf": "987.654.321-00",
+    "nome": "João Pereira",
+    "idade": 62,
+    "sexo": "M",
+    "peso": 85
+  },
+  {
+    "cpf": "111.222.333-44",
+    "nome": "Ana Costa",
+    "idade": 33,
+    "sexo": "F",
+    "peso": 58
+  }
+]
