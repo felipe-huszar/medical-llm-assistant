@@ -32,8 +32,10 @@ def _isolated_chroma(tmp_path, monkeypatch):
     monkeypatch.setenv("CHROMA_DB_PATH", str(tmp_path / "chroma_nodes"))
     import src.rag.patient_rag as rag_mod
     rag_mod._client = None
+    rag_mod._client_path = None
     yield
     rag_mod._client = None
+    rag_mod._client_path = None
 
 
 def _base_state(**overrides) -> ClinicalState:

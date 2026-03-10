@@ -91,6 +91,22 @@ def run_consultation(
     """
     from src.rag.patient_rag import save_patient, patient_exists
 
+    # Validate CPF
+    if not cpf or not cpf.strip():
+        return {
+            "cpf": cpf,
+            "doctor_question": doctor_question,
+            "patient_profile": {},
+            "is_new_patient": False,
+            "consultation_history": [],
+            "prompt": "",
+            "raw_response": "",
+            "safety_passed": False,
+            "sources": [],
+            "final_answer": "⚠️ CPF inválido ou vazio. Informe um CPF válido.",
+            "needs_escalation": True,
+        }
+
     # Pre-register patient if profile provided and not yet in DB
     if patient_profile and not patient_exists(cpf):
         save_patient(cpf, patient_profile)

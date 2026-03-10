@@ -33,8 +33,10 @@ def _isolated_chroma(tmp_path, monkeypatch):
     monkeypatch.setenv("USE_MOCK_LLM", "true")
     import src.rag.patient_rag as rag_mod
     rag_mod._client = None
+    rag_mod._client_path = None
     yield
     rag_mod._client = None
+    rag_mod._client_path = None
 
 
 # -----------------------------------------------------------------------------

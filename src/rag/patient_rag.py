@@ -11,15 +11,17 @@ import chromadb
 from chromadb.config import Settings
 
 
-_CHROMA_PATH = os.environ.get("CHROMA_DB_PATH", "./chroma_db")
-
 _client: Optional[chromadb.Client] = None
+_client_path: Optional[str] = None
 
 
 def _get_client() -> chromadb.Client:
-    global _client
-    if _client is None:
-        _client = chromadb.PersistentClient(path=_CHROMA_PATH)
+    """Return cached ChromaDB client, recreating if path changed (test isolation)."""
+    global _client, _client_path
+    current_path = os.environ.get("CHROMA_DB_PATH", "./chroma_db")
+    if _client is None or _client_path != current_path:
+        _client = chromadb.PersistentClient(path=current_path)
+        _client_path = current_path
     return _client
 
 

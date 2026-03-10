@@ -26,6 +26,7 @@ from src.rag.patient_rag import (
     save_consultation,
 )
 from src.safety.gate import validate_response, format_escalation_message
+from src.llm.factory import get_llm
 
 
 # ---------------------------------------------------------------------------

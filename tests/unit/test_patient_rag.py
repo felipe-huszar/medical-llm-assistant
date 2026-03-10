@@ -21,8 +21,10 @@ def _isolated_chroma(tmp_path, monkeypatch):
     # Reset the module-level singleton so each test gets a fresh client
     import src.rag.patient_rag as rag_mod
     rag_mod._client = None
+    rag_mod._client_path = None
     yield
     rag_mod._client = None
+    rag_mod._client_path = None
 
 
 from src.rag.patient_rag import (

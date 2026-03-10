@@ -14,6 +14,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from src.graph.pipeline import build_graph, run_consultation
+from src.rag.patient_rag import save_patient
 
 
 @pytest.fixture(autouse=True)
@@ -22,8 +23,10 @@ def _isolated_chroma(tmp_path, monkeypatch):
     monkeypatch.setenv("USE_MOCK_LLM", "true")
     import src.rag.patient_rag as rag_mod
     rag_mod._client = None
+    rag_mod._client_path = None
     yield
     rag_mod._client = None
+    rag_mod._client_path = None
 
 
 class TestBuildGraph:
