@@ -1,0 +1,146 @@
+"""
+Integration tests for src/graph/pipeline.py
+
+Requirements validated:
+  - REQ-PIPE-1: build_graph returns a compiled StateGraph
+  - REQ-PIPE-2: run_consultation completes all nodes for new patient
+  - REQ-PIPE-3: run_consultation loads existing patient profile
+  - REQ-PIPE-4: run_consultation persists consultation to history
+  - REQ-PIPE-5: full pipeline produces final_answer with diagnoses and exams
+"""
+
+import json
+import pytest
+from unittest.mock import MagicMock
+
+from src.graph.pipeline import build_graph, run_consultation
+
+
+@pytest.fixture(autouse=True)
+def _isolated_chroma(tmp_path, monkeypatch):
+    monkeypatch.setenv("CHROMA_DB_PATH", str(tmp_path / "chroma_pipeline"))
+    monkeypatch.setenv("USE_MOCK_LLM", "true")
+    import src.rag.patient_rag as rag_mod
+    rag_mod._client = None
+    yield
+    rag_mod._client = None
+
+
+class TestBuildGraph:
+    def test_build_graph_returns_callable(self):
+        """REQ-PIPE-1: build_graph produces a runnable graph."""
+        graph = build_graph()
+        assert callable(graph) or hasattr(graph, "invoke")
+
+
+class TestRunConsultationNewPatient:
+    def test_new_patient_consultation(self):
+        """REQ-PIPE-2: full pipeline runs for new patient with profile."""
+        result = run_consultation(
+            cpf="NEW.PAT.001-00",
+            doctor_question="Paciente com dor abdominal há 2 semanas. Quais diagnósticos?",
+            patient_profile={
+                "nome": "Test Patient",
+                "idade": 35,
+                "sexo": "F",
+                "peso": 65,
+            },
+        )
+        assert result["final_answer"] is not None
+        assert len(result["final_answer"]) > 0
+        assert result["is_new_patient"] is False  # After registration
+
+    def test_final_answer_contains_markdown(self):
+        """REQ-PIPE-5: final_answer is formatted Markdown."""
+        result = run_consultation(
+            cpf="NEW.PAT.002-00",
+            doctor_question="Dor abdominal?",
+            patient_profile={"nome": "Test", "idade": 40, "sexo": "M", "peso": 80},
+        )
+        assert "##" in result["final_answer"] or "**" in result["final_answer"]
+
+    def test_final_answer_contains_diagnoses(self):
+        """REQ-PIPE-5: final_answer lists possible diagnoses."""
+        result = run_consultation(
+            cpf="NEW.PAT.003-00",
+            doctor_question="Dor abdominal ao evacuar com sangue nas fezes.",
+            patient_profile={"nome": "Test", "idade": 45, "sexo": "F", "peso": 70},
+        )
+        # MockLLM returns GI-related diagnoses for abdominal keywords
+        answer = result["final_answer"].lower()
+        assert any(term in answer for term in ["intestino", "crohn", "colite", "síndrome"])
+
+    def test_final_answer_contains_exams(self):
+        """REQ-PIPE-5: final_answer lists recommended exams."""
+        result = run_consultation(
+            cpf="NEW.PAT.004-00",
+            doctor_question="Dor abdominal?",
+            patient_profile={"nome": "Test", "idade": 50, "sexo": "M", "peso": 85},
+        )
+        answer = result["final_answer"].lower()
+        assert any(term in answer for term in ["colonoscopia", "hemograma", "exame"])
+
+
+class TestRunConsultationExistingPatient:
+    def test_existing_patient_profile_loaded(self):
+        """REQ-PIPE-3: existing patient profile is loaded from ChromaDB."""
+        from src.rag.patient_rag import save_patient
+        cpf = "EXIST.PAT.001-00"
+        save_patient(cpf, {"nome": "Existing Patient", "idade": 60, "sexo": "F", "peso": 68})
+
+        result = run_consultation(
+            cpf=cpf,
+            doctor_question="Cefaleia recorrente?",
+        )
+        assert result["patient_profile"]["nome"] == "Existing Patient"
+        assert result["patient_profile"]["idade"] == 60
+
+    def test_consultation_history_accumulates(self):
+        """REQ-PIPE-4: multiple consultations are persisted and retrievable."""
+        from src.rag.patient_rag import get_consultation_history
+        cpf = "HIST.PAT.001-00"
+        save_patient(cpf, {"nome": "History Test", "idade": 30, "sexo": "M", "peso": 75})
+
+        # First consultation
+        run_consultation(cpf=cpf, doctor_question="Primeira consulta?")
+        history1 = get_consultation_history(cpf)
+        assert len(history1) == 1
+
+        # Second consultation
+        run_consultation(cpf=cpf, doctor_question="Segunda consulta?")
+        history2 = get_consultation_history(cpf)
+        assert len(history2) == 2
+
+
+class TestPipelineSafetyIntegration:
+    def test_escalation_path_for_invalid_response(self, monkeypatch):
+        """Safety gate triggers escalation for invalid LLM response."""
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = json.dumps({
+            "possible_diagnoses": ["X"],
+            "recommended_exams": ["Y"],
+            "reasoning": "r",
+            "sources": [],  # Empty → escalation
+            "confidence": 0.7,
+            "recommendation_type": "analysis",
+        })
+
+        result = run_consultation(
+            cpf="SAFETY.TEST.001-00",
+            doctor_question="Test?",
+            patient_profile={"nome": "Safety", "idade": 40, "sexo": "M", "peso": 80},
+            llm=mock_llm,
+        )
+        assert result["needs_escalation"] is True
+        assert "⚠️" in result["final_answer"] or "revisão" in result["final_answer"].lower()
+
+    def test_safe_path_for_valid_response(self):
+        """Normal flow produces analysis response (no escalation)."""
+        result = run_consultation(
+            cpf="SAFE.TEST.001-00",
+            doctor_question="Dor abdominal?",
+            patient_profile={"nome": "Safe", "idade": 35, "sexo": "F", "peso": 65},
+        )
+        assert result["needs_escalation"] is False
+        assert result["safety_passed"] is True
+        assert "##" in result["final_answer"]  # Normal formatted answer
