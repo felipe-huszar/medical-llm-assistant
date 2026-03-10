@@ -147,12 +147,12 @@ class TestLLMReasoningNode:
         mock_llm.invoke.assert_called_once_with("teste de prompt")
 
     def test_uses_factory_when_llm_none(self, monkeypatch):
-        """REQ-NODE-5: when llm=None, factory is used."""
+        """REQ-NODE-5: when llm=None, factory is used via src.llm.factory.get_llm."""
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = '{"test": true}'
 
-        import src.graph.nodes as nodes_mod
-        monkeypatch.setattr(nodes_mod, "get_llm", lambda: mock_llm)
+        import src.llm.factory as factory_mod
+        monkeypatch.setattr(factory_mod, "get_llm", lambda: mock_llm)
 
         state = _base_state(prompt="prompt")
         result = llm_reasoning(state, llm=None)
