@@ -18,6 +18,7 @@ seed_from_file("data/patients_seed.json")
 # Global LLM (shared across requests)
 _llm = get_llm()
 
+
 # ---------------------------------------------------------------------------
 # State helpers
 # ---------------------------------------------------------------------------
@@ -26,9 +27,9 @@ def _profile_text(profile: dict) -> str:
     if not profile:
         return "(nenhum paciente carregado)"
     return (
-        f"**Nome:** {profile.get('nome', 'N/A')}\n"
-        f"**Idade:** {profile.get('idade', 'N/A')} anos\n"
-        f"**Sexo:** {profile.get('sexo', 'N/A')}\n"
+        f"**Nome:** {profile.get('nome', 'N/A')}  "
+        f"**Idade:** {profile.get('idade', 'N/A')} anos  "
+        f"**Sexo:** {profile.get('sexo', 'N/A')}  "
         f"**Peso:** {profile.get('peso', 'N/A')} kg"
     )
 
@@ -45,7 +46,7 @@ def lookup_patient(cpf: str):
     profile = get_patient(cpf)
     if profile:
         return (
-            f"✅ Paciente encontrado:\n\n{_profile_text(profile)}",
+            f"✅ Paciente encontrado: **{profile.get('nome', '')}**",
             gr.update(visible=False),
             profile,
         )
@@ -57,35 +58,56 @@ def lookup_patient(cpf: str):
         )
 
 
-def register_patient(cpf: str, nome: str, idade: str, sexo: str, peso: str):
+def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
     cpf = cpf.strip()
+    if not cpf or not nome.strip():
+        return "❌ CPF e Nome são obrigatórios.", None, gr.update(selected=0)
     try:
         profile = {
             "cpf": cpf,
             "nome": nome.strip(),
-            "idade": int(idade),
+            "idade": int(idade or 0),
             "sexo": sexo.strip().upper(),
-            "peso": float(peso),
+            "peso": float(peso or 0),
         }
     except ValueError as e:
-        return f"❌ Dados inválidos: {e}", None
+        return f"❌ Dados inválidos: {e}", None, gr.update(selected=0)
 
     save_patient(cpf, profile)
-    return f"✅ Paciente **{nome}** cadastrado com sucesso.", profile
+    # Navega direto para aba de consulta após cadastro
+    return (
+        f"✅ Paciente **{nome}** cadastrado com sucesso.",
+        profile,
+        gr.update(selected=1),
+    )
 
 
 # ---------------------------------------------------------------------------
 # Tab 2: Consulta
 # ---------------------------------------------------------------------------
 
+def load_patient_for_consult(cpf: str):
+    """Carrega perfil ao digitar CPF na aba de consulta."""
+    cpf = cpf.strip()
+    if not cpf:
+        return "(aguardando CPF)", None
+    profile = get_patient(cpf)
+    if profile:
+        return _profile_text(profile), profile
+    return f"⚠️ Paciente com CPF **{cpf}** não encontrado. Cadastre-o na aba Paciente.", None
+
+
 def run_consult(cpf: str, question: str, current_patient: dict | None):
     cpf = cpf.strip()
     if not cpf:
-        return "⚠️ CPF não informado. Registre o paciente na aba 'Paciente'.", ""
+        return "(aguardando CPF)", "⚠️ Informe o CPF do paciente."
     if not question.strip():
-        return "", "⚠️ Informe uma pergunta clínica."
+        return _profile_text(current_patient) if current_patient else "(aguardando CPF)", "⚠️ Informe uma pergunta clínica."
 
-    profile = current_patient or get_patient(cpf)
+    # Sempre re-verifica o CPF — ignora state de outra aba
+    profile = get_patient(cpf)
+    if not profile:
+        return "(paciente não encontrado)", f"⚠️ CPF **{cpf}** não cadastrado. Registre o paciente primeiro."
 
     try:
         result = run_consultation(
@@ -94,7 +116,7 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
             llm=_llm,
             patient_profile=profile,
         )
-        return _profile_text(result.get("patient_profile", {})), result.get("final_answer", "Sem resposta.")
+        return _profile_text(result.get("patient_profile", profile)), result.get("final_answer", "Sem resposta.")
     except Exception as e:
         return "", f"❌ Erro durante a consulta: {e}"
 
@@ -107,50 +129,63 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
     current_patient = gr.State(None)
-    current_cpf = gr.State("")
 
-    with gr.Tab("👤 Paciente"):
-        cpf_input = gr.Textbox(label="CPF do Paciente", placeholder="123.456.789-00")
-        lookup_btn = gr.Button("Buscar Paciente", variant="primary")
-        patient_status = gr.Markdown("(aguardando busca)")
+    with gr.Tabs() as tabs:
 
-        with gr.Group(visible=False) as new_patient_form:
-            gr.Markdown("### Cadastrar Novo Paciente")
-            nome_input = gr.Textbox(label="Nome completo")
-            idade_input = gr.Number(label="Idade", precision=0)
-            sexo_input = gr.Radio(["M", "F"], label="Sexo", value="M")
-            peso_input = gr.Number(label="Peso (kg)", precision=1)
-            register_btn = gr.Button("Registrar Paciente", variant="secondary")
+        # ── Tab 1: Paciente ─────────────────────────────────────────────────
+        with gr.Tab("👤 Paciente", id=0):
+            cpf_input = gr.Textbox(label="CPF do Paciente", placeholder="123.456.789-00")
+            lookup_btn = gr.Button("Buscar Paciente", variant="primary")
 
-        lookup_btn.click(
-            fn=lookup_patient,
-            inputs=[cpf_input],
-            outputs=[patient_status, new_patient_form, current_patient],
-        )
+            with gr.Group(visible=False) as new_patient_form:
+                gr.Markdown("### Cadastrar Novo Paciente")
+                nome_input   = gr.Textbox(label="Nome completo")
+                idade_input  = gr.Number(label="Idade", precision=0)
+                sexo_input   = gr.Radio(["M", "F"], label="Sexo", value="M")
+                peso_input   = gr.Number(label="Peso (kg)", precision=1)
+                register_btn = gr.Button("Registrar Paciente", variant="secondary")
 
-        register_btn.click(
-            fn=register_patient,
-            inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
-            outputs=[patient_status, current_patient],
-        )
+            # Mensagem de status abaixo do formulário
+            patient_status = gr.Markdown("")
 
-    with gr.Tab("🩺 Consulta"):
-        gr.Markdown("### Realizar Consulta Clínica")
-        consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="123.456.789-00")
-        profile_display = gr.Markdown("(carregue o paciente)")
-        question_input = gr.Textbox(
-            label="Pergunta Clínica",
-            placeholder="Ex: Paciente com dores abdominais ao evacuar há 3 semanas. Quais diagnósticos considerar?",
-            lines=4,
-        )
-        consult_btn = gr.Button("Consultar", variant="primary")
-        answer_output = gr.Markdown(label="Resposta do Assistente")
+            lookup_btn.click(
+                fn=lookup_patient,
+                inputs=[cpf_input],
+                outputs=[patient_status, new_patient_form, current_patient],
+            )
 
-        consult_btn.click(
-            fn=run_consult,
-            inputs=[consult_cpf, question_input, current_patient],
-            outputs=[profile_display, answer_output],
-        )
+            register_btn.click(
+                fn=register_patient,
+                inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
+                outputs=[patient_status, current_patient, tabs],
+            )
+
+        # ── Tab 2: Consulta ─────────────────────────────────────────────────
+        with gr.Tab("🩺 Consulta", id=1):
+            gr.Markdown("### Realizar Consulta Clínica")
+            consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="123.456.789-00")
+            profile_display = gr.Markdown("(aguardando CPF)")
+
+            question_input = gr.Textbox(
+                label="Pergunta Clínica",
+                placeholder="Ex: Paciente com dores abdominais ao evacuar há 3 semanas. Quais diagnósticos considerar?",
+                lines=4,
+            )
+            consult_btn  = gr.Button("Consultar", variant="primary")
+            answer_output = gr.Markdown(label="Resposta do Assistente")
+
+            # Carrega perfil ao digitar CPF
+            consult_cpf.change(
+                fn=load_patient_for_consult,
+                inputs=[consult_cpf],
+                outputs=[profile_display, current_patient],
+            )
+
+            consult_btn.click(
+                fn=run_consult,
+                inputs=[consult_cpf, question_input, current_patient],
+                outputs=[profile_display, answer_output],
+            )
 
 if __name__ == "__main__":
     demo.launch(share=False)
