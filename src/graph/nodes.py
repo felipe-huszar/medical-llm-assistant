@@ -176,11 +176,11 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     except json.JSONDecodeError:
         parsed = {}
 
-    diagnoses = parsed.get("possible_diagnoses", [])
-    exams = parsed.get("recommended_exams", [])
-    reasoning = parsed.get("reasoning", "")
-    sources = parsed.get("sources", [])
-    confidence = parsed.get("confidence", 0.0)
+    diagnoses = parsed.get("possible_diagnoses") or []
+    exams = parsed.get("recommended_exams") or []
+    reasoning = parsed.get("reasoning") or ""
+    sources = parsed.get("sources") or []
+    confidence = parsed.get("confidence") or 0.0
 
     # Format human-readable answer
     diag_text = "\n".join(f"  • {d}" for d in diagnoses) if diagnoses else "  • N/A"

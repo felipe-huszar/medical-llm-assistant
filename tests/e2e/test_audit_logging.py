@@ -216,7 +216,7 @@ class TestPipelineAuditTrail:
         mock_llm = MagicMock()
         mock_llm.invoke.return_value = bad_response
 
-        with patch("src.graph.nodes.get_llm", return_value=mock_llm):
+        with patch("src.llm.factory.get_llm", return_value=mock_llm):
             run_consultation(cpf="321.654.987-00", doctor_question="pressão alta")
 
         trail = get_audit_trail(event_type="safety_triggered")
