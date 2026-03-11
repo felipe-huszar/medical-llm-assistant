@@ -21,6 +21,31 @@ _llm = get_llm()
 
 
 # ---------------------------------------------------------------------------
+# CPF helpers
+# ---------------------------------------------------------------------------
+
+def _normalize_cpf(cpf: str) -> str:
+    """Remove formatação e retorna apenas os dígitos."""
+    return re.sub(r"\D", "", cpf.strip())
+
+
+def _format_cpf(digits: str) -> str:
+    """Formata 11 dígitos como xxx.xxx.xxx-xx."""
+    d = re.sub(r"\D", "", digits)[:11]
+    if len(d) == 11:
+        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    return d
+
+
+def _valid_cpf(cpf: str) -> tuple[bool, str]:
+    """Valida e retorna (ok, cpf_formatado_ou_erro)."""
+    digits = _normalize_cpf(cpf)
+    if len(digits) != 11:
+        return False, "⚠️ CPF deve ter 11 dígitos (apenas números)."
+    return True, _format_cpf(digits)
+
+
+# ---------------------------------------------------------------------------
 # State helpers
 # ---------------------------------------------------------------------------
 
@@ -39,48 +64,37 @@ def _profile_text(profile: dict) -> str:
 # Tab 1: Paciente
 # ---------------------------------------------------------------------------
 
-def _normalize_cpf(cpf: str) -> str:
-    """Remove formatação e retorna apenas os dígitos."""
-    return re.sub(r"\D", "", cpf.strip())
-
-
-def _format_cpf(digits: str) -> str:
-    """Formata 11 dígitos como xxx.xxx.xxx-xx."""
-    d = digits[:11]
-    if len(d) == 11:
-        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
-    return d
-
-
 def lookup_patient(cpf: str):
-    digits = _normalize_cpf(cpf)
-    if not digits:
-        return "⚠️ Informe um CPF.", gr.update(visible=False), None
-    if len(digits) != 11:
-        return "⚠️ CPF deve ter 11 dígitos.", gr.update(visible=False), None
-    cpf = _format_cpf(digits)
+    ok, cpf_or_err = _valid_cpf(cpf)
+    if not ok:
+        return cpf_or_err, gr.update(visible=False), None, ""
+
+    cpf = cpf_or_err
     profile = get_patient(cpf)
     if profile:
         return (
             f"✅ Paciente encontrado: **{profile.get('nome', '')}**",
             gr.update(visible=False),
             profile,
+            cpf,   # pre-preenche o CPF na aba de consulta
         )
     else:
         return (
             f"🆕 CPF **{cpf}** não cadastrado. Preencha os dados abaixo:",
             gr.update(visible=True),
             None,
+            "",
         )
 
 
 def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
-    digits = _normalize_cpf(cpf)
-    if len(digits) != 11:
-        return "❌ CPF inválido. Informe 11 dígitos.", None, gr.update(selected=0)
-    cpf = _format_cpf(digits)
+    ok, cpf_or_err = _valid_cpf(cpf)
+    if not ok:
+        return cpf_or_err, None, gr.update(selected=0), ""
+    cpf = cpf_or_err
+
     if not nome.strip():
-        return "❌ Nome é obrigatório.", None, gr.update(selected=0)
+        return "❌ Nome é obrigatório.", None, gr.update(selected=0), ""
     try:
         profile = {
             "cpf": cpf,
@@ -90,14 +104,14 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
             "peso": float(peso or 0),
         }
     except ValueError as e:
-        return f"❌ Dados inválidos: {e}", None, gr.update(selected=0)
+        return f"❌ Dados inválidos: {e}", None, gr.update(selected=0), ""
 
     save_patient(cpf, profile)
-    # Navega direto para aba de consulta após cadastro
     return (
         f"✅ Paciente **{nome}** cadastrado com sucesso.",
         profile,
-        gr.update(selected=1),
+        gr.update(selected=1),  # navega para aba de consulta
+        cpf,                    # pre-preenche o CPF na aba de consulta
     )
 
 
@@ -106,14 +120,15 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
 # ---------------------------------------------------------------------------
 
 def run_consult(cpf: str, question: str, current_patient: dict | None):
-    digits = _normalize_cpf(cpf)
-    if len(digits) != 11:
-        return "(aguardando CPF)", "⚠️ Informe um CPF válido com 11 dígitos."
+    ok, cpf_or_err = _valid_cpf(cpf)
+    if not ok:
+        return "(aguardando CPF)", cpf_or_err
+    cpf = cpf_or_err
+
     if not question.strip():
         return _profile_text(current_patient) if current_patient else "(aguardando CPF)", "⚠️ Informe uma pergunta clínica."
 
-    cpf = _format_cpf(digits)
-    # Sempre re-verifica o CPF — ignora state de outra aba
+    # Sempre busca direto no DB pelo CPF digitado
     profile = get_patient(cpf)
     if not profile:
         return "(paciente não encontrado)", f"⚠️ CPF **{cpf}** não cadastrado. Registre o paciente primeiro."
@@ -143,44 +158,30 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
 
         # ── Tab 1: Paciente ─────────────────────────────────────────────────
         with gr.Tab("👤 Paciente", id=0):
-            cpf_input = gr.Textbox(label="CPF do Paciente", placeholder="123.456.789-00")
+            cpf_input = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
             lookup_btn = gr.Button("Buscar Paciente", variant="primary")
 
             with gr.Group(visible=False) as new_patient_form:
                 gr.Markdown("### Cadastrar Novo Paciente")
-                nome_input   = gr.Textbox(label="Nome completo")
-                idade_input  = gr.Number(label="Idade", precision=0)
-                sexo_input   = gr.Radio(["M", "F"], label="Sexo", value="M")
-                peso_input   = gr.Number(label="Peso (kg)", precision=1)
+                nome_input  = gr.Textbox(label="Nome completo")
+                idade_input = gr.Number(label="Idade", precision=0)
+                sexo_input  = gr.Radio(["M", "F"], label="Sexo", value="M")
+                peso_input  = gr.Number(label="Peso (kg)", precision=1)
                 register_btn = gr.Button("Registrar Paciente", variant="secondary")
 
-            # Mensagem de status abaixo do formulário
             patient_status = gr.Markdown("")
-
-            lookup_btn.click(
-                fn=lookup_patient,
-                inputs=[cpf_input],
-                outputs=[patient_status, new_patient_form, current_patient],
-            )
-
-            register_btn.click(
-                fn=register_patient,
-                inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
-                outputs=[patient_status, current_patient, tabs],
-            )
 
         # ── Tab 2: Consulta ─────────────────────────────────────────────────
         with gr.Tab("🩺 Consulta", id=1):
             gr.Markdown("### Realizar Consulta Clínica")
-            consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="123.456.789-00")
+            consult_cpf    = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
             profile_display = gr.Markdown("(aguardando CPF)")
-
             question_input = gr.Textbox(
                 label="Pergunta Clínica",
                 placeholder="Ex: Paciente com dores abdominais ao evacuar há 3 semanas. Quais diagnósticos considerar?",
                 lines=4,
             )
-            consult_btn  = gr.Button("Consultar", variant="primary")
+            consult_btn   = gr.Button("Consultar", variant="primary")
             answer_output = gr.Markdown(label="Resposta do Assistente")
 
             consult_btn.click(
@@ -188,6 +189,19 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
                 inputs=[consult_cpf, question_input, current_patient],
                 outputs=[profile_display, answer_output],
             )
+
+    # ── Eventos Tab 1 ───────────────────────────────────────────────────────
+    lookup_btn.click(
+        fn=lookup_patient,
+        inputs=[cpf_input],
+        outputs=[patient_status, new_patient_form, current_patient, consult_cpf],
+    )
+
+    register_btn.click(
+        fn=register_patient,
+        inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
+        outputs=[patient_status, current_patient, tabs, consult_cpf],
+    )
 
 if __name__ == "__main__":
     demo.launch(share=False)
