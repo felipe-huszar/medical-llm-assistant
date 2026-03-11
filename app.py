@@ -16,8 +16,15 @@ from src.graph.pipeline import run_consultation
 # Seed DB on startup
 seed_from_file("data/patients_seed.json")
 
-# Global LLM (shared across requests)
-_llm = get_llm()
+# LLM instanciado na primeira requisição (lê USE_MOCK_LLM do ambiente no momento do uso)
+_llm = None
+
+
+def _get_llm():
+    global _llm
+    if _llm is None:
+        _llm = get_llm()
+    return _llm
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +144,7 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
         result = run_consultation(
             cpf=cpf,
             doctor_question=question,
-            llm=_llm,
+            llm=_get_llm(),
             patient_profile=profile,
         )
         return _profile_text(result.get("patient_profile", profile)), result.get("final_answer", "Sem resposta.")
