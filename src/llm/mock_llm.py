@@ -129,10 +129,16 @@ class MockLLM:
     """Deterministic mock LLM for development and testing."""
 
     def invoke(self, prompt: str) -> str:
-        """Match keywords in prompt and return a canned JSON response."""
-        prompt_lower = prompt.lower()
+        """Match keywords only in the current question (after '## Pergunta do Médico')."""
+        # Extrai apenas a pergunta atual, ignorando histórico de consultas anteriores
+        marker = "## Pergunta do Médico"
+        if marker in prompt:
+            question_text = prompt.split(marker, 1)[1]
+        else:
+            question_text = prompt
+        question_lower = question_text.lower()
         for entry in _RESPONSES:
-            if any(kw in prompt_lower for kw in entry["keywords"]):
+            if any(kw in question_lower for kw in entry["keywords"]):
                 return json.dumps(entry["response"], ensure_ascii=False)
         return json.dumps(_DEFAULT_RESPONSE, ensure_ascii=False)
 

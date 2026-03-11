@@ -6,6 +6,7 @@ Tab 2: Consulta  - Clinical question + LLM response
 """
 
 import os
+import re
 import gradio as gr
 
 from src.llm.factory import get_llm
@@ -38,11 +39,26 @@ def _profile_text(profile: dict) -> str:
 # Tab 1: Paciente
 # ---------------------------------------------------------------------------
 
-def lookup_patient(cpf: str):
-    cpf = cpf.strip()
-    if not cpf:
-        return "⚠️ Informe um CPF.", gr.update(visible=False), None
+def _normalize_cpf(cpf: str) -> str:
+    """Remove formatação e retorna apenas os dígitos."""
+    return re.sub(r"\D", "", cpf.strip())
 
+
+def _format_cpf(digits: str) -> str:
+    """Formata 11 dígitos como xxx.xxx.xxx-xx."""
+    d = digits[:11]
+    if len(d) == 11:
+        return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+    return d
+
+
+def lookup_patient(cpf: str):
+    digits = _normalize_cpf(cpf)
+    if not digits:
+        return "⚠️ Informe um CPF.", gr.update(visible=False), None
+    if len(digits) != 11:
+        return "⚠️ CPF deve ter 11 dígitos.", gr.update(visible=False), None
+    cpf = _format_cpf(digits)
     profile = get_patient(cpf)
     if profile:
         return (
@@ -59,9 +75,12 @@ def lookup_patient(cpf: str):
 
 
 def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
-    cpf = cpf.strip()
-    if not cpf or not nome.strip():
-        return "❌ CPF e Nome são obrigatórios.", None, gr.update(selected=0)
+    digits = _normalize_cpf(cpf)
+    if len(digits) != 11:
+        return "❌ CPF inválido. Informe 11 dígitos.", None, gr.update(selected=0)
+    cpf = _format_cpf(digits)
+    if not nome.strip():
+        return "❌ Nome é obrigatório.", None, gr.update(selected=0)
     try:
         profile = {
             "cpf": cpf,
@@ -86,24 +105,14 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
 # Tab 2: Consulta
 # ---------------------------------------------------------------------------
 
-def load_patient_for_consult(cpf: str):
-    """Carrega perfil ao digitar CPF na aba de consulta."""
-    cpf = cpf.strip()
-    if not cpf:
-        return "(aguardando CPF)", None
-    profile = get_patient(cpf)
-    if profile:
-        return _profile_text(profile), profile
-    return f"⚠️ Paciente com CPF **{cpf}** não encontrado. Cadastre-o na aba Paciente.", None
-
-
 def run_consult(cpf: str, question: str, current_patient: dict | None):
-    cpf = cpf.strip()
-    if not cpf:
-        return "(aguardando CPF)", "⚠️ Informe o CPF do paciente."
+    digits = _normalize_cpf(cpf)
+    if len(digits) != 11:
+        return "(aguardando CPF)", "⚠️ Informe um CPF válido com 11 dígitos."
     if not question.strip():
         return _profile_text(current_patient) if current_patient else "(aguardando CPF)", "⚠️ Informe uma pergunta clínica."
 
+    cpf = _format_cpf(digits)
     # Sempre re-verifica o CPF — ignora state de outra aba
     profile = get_patient(cpf)
     if not profile:
@@ -173,13 +182,6 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
             )
             consult_btn  = gr.Button("Consultar", variant="primary")
             answer_output = gr.Markdown(label="Resposta do Assistente")
-
-            # Carrega perfil ao digitar CPF
-            consult_cpf.change(
-                fn=load_patient_for_consult,
-                inputs=[consult_cpf],
-                outputs=[profile_display, current_patient],
-            )
 
             consult_btn.click(
                 fn=run_consult,
