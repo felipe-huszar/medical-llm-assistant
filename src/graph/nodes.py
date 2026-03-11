@@ -88,29 +88,37 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
         else "Sem histórico de consultas anteriores."
     )
 
-    prompt = f"""Você é um assistente médico especializado. Analise o caso clínico abaixo e retorne APENAS um JSON válido.
+    prompt = f"""### Instrução
+Você é um assistente médico especializado. Analise o caso clínico e responda EXCLUSIVAMENTE com um objeto JSON válido — sem introdução, sem explicação, sem texto antes ou depois do JSON.
 
-## Perfil do Paciente
+### Perfil do Paciente
 {profile_text}
 
-## Histórico de Consultas
+### Histórico de Consultas
 {history_text}
 
-## Pergunta do Médico
+### Pergunta do Médico
 {question}
 
-## Instrução
-Responda SOMENTE com um JSON no formato abaixo (sem texto extra):
+### Formato de Resposta (siga exatamente)
+Retorne apenas o JSON abaixo preenchido, sem nenhum texto adicional:
+
+```json
 {{
-  "possible_diagnoses": ["<diagnóstico 1>", "<diagnóstico 2>"],
-  "recommended_exams": ["<exame 1>", "<exame 2>"],
-  "reasoning": "<raciocínio clínico detalhado>",
-  "sources": ["<fonte 1>", "<fonte 2>"],
-  "confidence": <0.0 a 1.0>,
+  "possible_diagnoses": ["diagnóstico 1", "diagnóstico 2"],
+  "recommended_exams": ["exame 1", "exame 2"],
+  "reasoning": "raciocínio clínico detalhado aqui",
+  "sources": ["fonte ou protocolo utilizado"],
+  "confidence": 0.75,
   "recommendation_type": "analysis"
 }}
+```
 
-IMPORTANTE: Nunca prescreva medicamentos diretamente. Apenas análise e recomendação de exames."""
+### Regras obrigatórias
+- Nunca prescreva medicamentos. Use recommendation_type "analysis" sempre.
+- confidence deve ser um número entre 0.0 e 1.0.
+- sources deve conter ao menos uma referência clínica.
+- Retorne SOMENTE o JSON. Nenhuma palavra fora do JSON."""
 
     state["prompt"] = prompt
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",

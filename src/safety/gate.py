@@ -31,9 +31,20 @@ def validate_response(raw_response: str) -> dict:
         "reason": "",
     }
 
-    # --- Parse JSON ---
+    # --- Parse JSON (aceita markdown ```json ... ``` e texto com JSON embutido) ---
+    import re as _re
+    text = raw_response.strip()
+    # Extrai bloco ```json ... ``` se existir
+    md_match = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, _re.DOTALL)
+    if md_match:
+        text = md_match.group(1)
+    else:
+        # Tenta extrair primeiro objeto JSON do texto
+        json_match = _re.search(r"\{.*\}", text, _re.DOTALL)
+        if json_match:
+            text = json_match.group(0)
     try:
-        parsed = json.loads(raw_response)
+        parsed = json.loads(text)
     except json.JSONDecodeError as e:
         result["needs_escalation"] = True
         result["reason"] = f"Resposta LLM não é JSON válido: {e}"
