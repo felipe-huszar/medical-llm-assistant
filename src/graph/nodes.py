@@ -18,6 +18,7 @@ import os
 from typing import Any
 
 from src.graph.state import ClinicalState
+from src.audit.logger import audit_log
 from src.rag.patient_rag import (
     get_patient,
     patient_exists,
@@ -45,6 +46,8 @@ def check_patient(state: ClinicalState) -> ClinicalState:
         state["is_new_patient"] = False
         state["patient_profile"] = profile
 
+    audit_log("node_executed", cpf=cpf, node="check_patient",
+              is_new_patient=state["is_new_patient"])
     return state
 
 
@@ -57,6 +60,8 @@ def retrieve_history(state: ClinicalState) -> ClinicalState:
     cpf = state["cpf"]
     history = get_consultation_history(cpf, n_results=5)
     state["consultation_history"] = history
+    audit_log("node_executed", cpf=cpf, node="retrieve_history",
+              history_count=len(history))
     return state
 
 
@@ -108,6 +113,8 @@ Responda SOMENTE com um JSON no formato abaixo (sem texto extra):
 IMPORTANTE: Nunca prescreva medicamentos diretamente. Apenas análise e recomendação de exames."""
 
     state["prompt"] = prompt
+    audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
+              prompt_length=len(prompt), has_history=bool(history))
     return state
 
 
@@ -125,6 +132,8 @@ def llm_reasoning(state: ClinicalState, llm: Any = None) -> ClinicalState:
     prompt = state.get("prompt", "")
     raw = llm.invoke(prompt)
     state["raw_response"] = raw
+    audit_log("node_executed", cpf=state["cpf"], node="llm_reasoning",
+              response_length=len(raw), llm_type=type(llm).__name__)
     return state
 
 
@@ -143,6 +152,11 @@ def safety_gate(state: ClinicalState) -> ClinicalState:
 
     if validation["needs_escalation"]:
         state["final_answer"] = format_escalation_message(validation["reason"])
+        audit_log("safety_triggered", cpf=state["cpf"], node="safety_gate",
+                  reason=validation["reason"], action="escalation")
+    else:
+        audit_log("node_executed", cpf=state["cpf"], node="safety_gate",
+                  safety_passed=True, sources_count=len(validation["sources"]))
 
     return state
 
@@ -184,6 +198,10 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     )
 
     state["final_answer"] = answer
+
+    audit_log("consultation_saved", cpf=cpf, node="save_and_format",
+              diagnoses_count=len(diagnoses), exams_count=len(exams),
+              confidence=confidence, sources=sources)
 
     # Persist to ChromaDB
     save_consultation(
