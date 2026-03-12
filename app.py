@@ -195,6 +195,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
                 fn=run_consult,
                 inputs=[consult_cpf, question_input, current_patient],
                 outputs=[profile_display, answer_output],
+                show_progress="full",
             )
 
     # ── Eventos Tab 1 ───────────────────────────────────────────────────────

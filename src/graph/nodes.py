@@ -140,8 +140,10 @@ def llm_reasoning(state: ClinicalState, llm: Any = None) -> ClinicalState:
     prompt = state.get("prompt", "")
     raw = llm.invoke(prompt)
     state["raw_response"] = raw
+    # Loga primeiros 300 chars do raw para debug
     audit_log("node_executed", cpf=state["cpf"], node="llm_reasoning",
-              response_length=len(raw), llm_type=type(llm).__name__)
+              response_length=len(raw), llm_type=type(llm).__name__,
+              raw_preview=raw[:300] if raw else "")
     return state
 
 
