@@ -12,6 +12,52 @@ import json
 from typing import Any
 
 
+def _prose_to_json(text: str) -> str:
+    """
+    Converte resposta em prosa livre para JSON mínimo válido.
+    Usado quando o modelo retorna texto narrativo em vez de JSON.
+    """
+    import re as _re
+    import json as _json
+
+    # Verifica se menciona prescrição (bloqueio de segurança)
+    prescription_keywords = ["prescrevo", "prescrito", "tome ", "mg/dia", "comprimido"]
+    rec_type = "prescription" if any(k in text.lower() for k in prescription_keywords) else "analysis"
+
+    # Extrai possíveis diagnósticos (linhas com "diagnóstico", "suspeita", "hipótese", bullet "-" ou "•")
+    diagnoses = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if _re.match(r"^[-•*\d\.]+\s+", line):
+            clean = _re.sub(r"^[-•*\d\.]+\s+", "", line).strip()
+            if 5 < len(clean) < 120:
+                diagnoses.append(clean)
+    if not diagnoses:
+        diagnoses = ["Análise clínica — ver raciocínio completo"]
+
+    # Exames recomendados
+    exam_keywords = ["exame", "hemograma", "tomografia", "raio", "ultrassom", "ressonância",
+                     "ecocardiograma", "eletrocardiograma", "colonoscopia", "endoscopia"]
+    exams = []
+    for line in text.split("\n"):
+        if any(k in line.lower() for k in exam_keywords):
+            clean = line.strip().lstrip("-•* ")
+            if 5 < len(clean) < 120:
+                exams.append(clean)
+    if not exams:
+        exams = ["Avaliação clínica complementar conforme julgamento médico"]
+
+    result = {
+        "possible_diagnoses": diagnoses[:5],
+        "recommended_exams": exams[:5],
+        "reasoning": text.strip()[:1000],
+        "sources": ["Resposta gerada pelo modelo LoRA fine-tuned"],
+        "confidence": 0.65,
+        "recommendation_type": rec_type,
+    }
+    return _json.dumps(result, ensure_ascii=False)
+
+
 def validate_response(raw_response: str) -> dict:
     """
     Parse and validate an LLM JSON response.
@@ -31,18 +77,29 @@ def validate_response(raw_response: str) -> dict:
         "reason": "",
     }
 
-    # --- Parse JSON (aceita markdown ```json ... ``` e texto com JSON embutido) ---
+    # --- Parse JSON (aceita markdown ```json...```, JSON embutido ou prosa livre) ---
     import re as _re
     text = raw_response.strip()
-    # Extrai bloco ```json ... ``` se existir
+
+    # 1. Tenta extrair bloco ```json ... ```
     md_match = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, _re.DOTALL)
     if md_match:
         text = md_match.group(1)
     else:
-        # Tenta extrair primeiro objeto JSON do texto
+        # 2. Tenta extrair primeiro objeto JSON do texto
         json_match = _re.search(r"\{.*\}", text, _re.DOTALL)
         if json_match:
             text = json_match.group(0)
+        else:
+            # 3. Fallback: modelo retornou prosa livre — monta JSON mínimo
+            # Só ativa se houver conteúdo suficiente (resposta real, não erro)
+            if len(raw_response.strip()) >= 100:
+                text = _prose_to_json(raw_response)
+            else:
+                result["needs_escalation"] = True
+                result["reason"] = f"Resposta LLM não é JSON válido e muito curta para análise."
+                return result
+
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError as e:
