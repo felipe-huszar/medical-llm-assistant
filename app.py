@@ -99,11 +99,11 @@ def lookup_patient(cpf: str):
 def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
-        return cpf_or_err, None, gr.update(selected=0), ""
+        return cpf_or_err, None, gr.update(selected=0), "", "", ""
     cpf = cpf_or_err
 
     if not nome.strip():
-        return "❌ Nome é obrigatório.", None, gr.update(selected=0), ""
+        return "❌ Nome é obrigatório.", None, gr.update(selected=0), "", "", ""
     try:
         profile = {
             "cpf": cpf,
@@ -113,14 +113,16 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
             "peso": float(peso or 0),
         }
     except ValueError as e:
-        return f"❌ Dados inválidos: {e}", None, gr.update(selected=0), ""
+        return f"❌ Dados inválidos: {e}", None, gr.update(selected=0), "", "", ""
 
     save_patient(cpf, profile)
     return (
         f"✅ Paciente **{nome}** cadastrado com sucesso.",
         profile,
-        gr.update(selected=1),  # navega para aba de consulta
-        cpf,                    # pre-preenche o CPF na aba de consulta
+        gr.update(selected=1),   # navega para aba de consulta
+        cpf,                     # pre-preenche o CPF na aba de consulta
+        _profile_text(profile),  # atualiza profile_display imediatamente
+        "",                      # limpa pergunta anterior
     )
 
 
@@ -210,7 +212,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
     register_btn.click(
         fn=register_patient,
         inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
-        outputs=[patient_status, current_patient, tabs, consult_cpf],
+        outputs=[patient_status, current_patient, tabs, consult_cpf, profile_display, question_input],
     )
 
 if __name__ == "__main__":
