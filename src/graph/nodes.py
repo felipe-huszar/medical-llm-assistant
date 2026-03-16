@@ -179,13 +179,14 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     src_text = ", ".join(sources) if sources else "N/A"
 
     answer = (
-        f"## Análise Clínica\n\n"
-        f"**Possíveis Diagnósticos:**\n{diag_text}\n\n"
-        f"**Exames Recomendados:**\n{exam_text}\n\n"
-        f"**Raciocínio Clínico:**\n{reasoning}\n\n"
-        f"**Fontes:** {src_text}\n"
+        f"## 🩺 Análise Clínica\n\n"
+        f"### Possíveis Diagnósticos\n{diag_text}\n\n"
+        f"### Exames Recomendados\n{exam_text}\n\n"
+        f"### Raciocínio Clínico\n{reasoning}\n\n"
+        f"---\n"
+        f"**Fontes:** {src_text}  \n"
         f"**Confiança:** {confidence:.0%}\n\n"
-        f"⚕️ *Esta análise é apenas orientativa. A decisão clínica é responsabilidade do médico.*"
+        f"> ⚕️ *Esta análise é apenas orientativa. A decisão clínica é responsabilidade do médico.*"
     )
 
     state["final_answer"] = answer

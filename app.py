@@ -74,7 +74,7 @@ def _profile_text(profile: dict) -> str:
 def lookup_patient(cpf: str):
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
-        return cpf_or_err, gr.update(visible=False), None, ""
+        return cpf_or_err, gr.update(visible=False), None, "", ""
 
     cpf = cpf_or_err
     profile = get_patient(cpf)
@@ -83,7 +83,8 @@ def lookup_patient(cpf: str):
             f"✅ Paciente encontrado: **{profile.get('nome', '')}**",
             gr.update(visible=False),
             profile,
-            cpf,   # pre-preenche o CPF na aba de consulta
+            cpf,                    # pre-preenche o CPF na aba de consulta
+            _profile_text(profile), # atualiza profile_display imediatamente
         )
     else:
         return (
@@ -91,6 +92,7 @@ def lookup_patient(cpf: str):
             gr.update(visible=True),
             None,
             "",
+            "(paciente não cadastrado)",
         )
 
 
@@ -129,16 +131,16 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
 def run_consult(cpf: str, question: str, current_patient: dict | None):
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
-        return "(aguardando CPF)", cpf_or_err
+        return "⚠️ CPF inválido", cpf_or_err
     cpf = cpf_or_err
-
-    if not question.strip():
-        return _profile_text(current_patient) if current_patient else "(aguardando CPF)", "⚠️ Informe uma pergunta clínica."
 
     # Sempre busca direto no DB pelo CPF digitado
     profile = get_patient(cpf)
     if not profile:
-        return "(paciente não encontrado)", f"⚠️ CPF **{cpf}** não cadastrado. Registre o paciente primeiro."
+        return "❌ Paciente não encontrado", f"⚠️ CPF **{cpf}** não cadastrado. Registre o paciente primeiro."
+
+    if not question.strip():
+        return _profile_text(profile), "⚠️ Informe uma pergunta clínica."
 
     try:
         result = run_consultation(
@@ -202,7 +204,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
     lookup_btn.click(
         fn=lookup_patient,
         inputs=[cpf_input],
-        outputs=[patient_status, new_patient_form, current_patient, consult_cpf],
+        outputs=[patient_status, new_patient_form, current_patient, consult_cpf, profile_display],
     )
 
     register_btn.click(
