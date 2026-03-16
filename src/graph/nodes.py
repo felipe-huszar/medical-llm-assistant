@@ -169,8 +169,20 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     confidence = parsed.get("confidence") or 0.0
 
     # Format human-readable answer
-    diag_text = "\n".join(f"  • {d}" for d in diagnoses) if diagnoses else "  • N/A"
-    exam_text = "\n".join(f"  • {e}" for e in exams) if exams else "  • N/A"
+    def _fmt_diag(d):
+        if isinstance(d, dict):
+            name = d.get("name") or d.get("diagnosis") or str(d)
+            conf = d.get("confidence") or d.get("score")
+            return f"  • {name}" + (f" *(confiança: {conf:.0%})*" if isinstance(conf, float) else "")
+        return f"  • {d}"
+
+    def _fmt_exam(e):
+        if isinstance(e, dict):
+            return f"  • {e.get('exam') or e.get('name') or str(e)}"
+        return f"  • {e}"
+
+    diag_text = "\n".join(_fmt_diag(d) for d in diagnoses) if diagnoses else "  • N/A"
+    exam_text = "\n".join(_fmt_exam(e) for e in exams) if exams else "  • N/A"
     src_text = ", ".join(sources) if sources else "N/A"
 
     answer = (
