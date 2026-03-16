@@ -188,18 +188,22 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
             consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
             profile_display = gr.Markdown("(aguardando CPF)")
             
-            # Carrega perfil ao pressionar Enter no CPF
-            def load_profile_on_submit(cpf):
+            # Quando a aba Consulta é ativada, carrega o perfil do CPF preenchido
+            def on_consulta_tab_selected(selected_tab, cpf):
+                if selected_tab != 1:  # não é a aba Consulta
+                    return "(aguardando CPF)"
+                if not cpf:
+                    return "(aguardando CPF)"
                 ok, cpf_or_err = _valid_cpf(cpf)
                 if not ok:
                     return "⚠️ CPF inválido"
-                cpf = cpf_or_err
-                profile = get_patient(cpf)
+                profile = get_patient(cpf_or_err)
                 if profile:
                     return _profile_text(profile)
                 return "❌ Paciente não encontrado"
             
-            consult_cpf.submit(fn=load_profile_on_submit, inputs=[consult_cpf], outputs=[profile_display])
+            tabs.select(fn=on_consulta_tab_selected, inputs=[tabs, consult_cpf], outputs=[profile_display])
+            
             question_input = gr.Textbox(
                 label="Pergunta Clínica",
                 placeholder="Ex: Paciente com dores abdominais ao evacuar há 3 semanas. Quais diagnósticos considerar?",
