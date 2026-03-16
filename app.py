@@ -187,6 +187,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
             gr.Markdown("### Realizar Consulta Clínica")
             consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
             profile_display = gr.Markdown("(aguardando CPF)")
+            gr.Markdown("💡 *Dica: Clique em **Consultar** para carregar o perfil do paciente.*")
             
             # Quando a aba Consulta é ativada, carrega o perfil do CPF preenchido
             def on_consulta_tab_selected(selected_tab, cpf):
