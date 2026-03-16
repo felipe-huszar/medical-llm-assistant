@@ -1,8 +1,8 @@
 """
-model_loader.py - Loads the LoRA-fine-tuned Mistral adapter.
+model_loader.py - Loads the LoRA-fine-tuned model (Qwen2.5 or Mistral).
 Only used when USE_MOCK_LLM=false.
 
-Base model: unsloth/mistral-7b-bnb-4bit
+Base model: unsloth/Qwen2.5-7B-Instruct-bnb-4bit
 Adapter: trained with PEFT/LoRA via unsloth (r=16, alpha=16)
 """
 
@@ -12,7 +12,7 @@ from typing import Any
 
 def load_lora_model(model_path: str) -> Any:
     """
-    Load the Mistral LoRA adapter using unsloth (matches training environment).
+    Load the LoRA adapter using unsloth (matches training environment).
 
     Args:
         model_path: local path to adapter folder (adapter_config.json + adapter_model.safetensors)
@@ -27,7 +27,7 @@ def load_lora_model(model_path: str) -> Any:
             "unsloth não instalado. Execute: pip install unsloth"
         ) from e
 
-    base_model_id = os.environ.get("BASE_MODEL_ID", "unsloth/mistral-7b-bnb-4bit")
+    base_model_id = os.environ.get("BASE_MODEL_ID", "unsloth/Qwen2.5-7B-Instruct-bnb-4bit")
 
     print(f"[model_loader] Carregando base model: {base_model_id}")
     model, tokenizer = FastLanguageModel.from_pretrained(
@@ -45,17 +45,51 @@ def load_lora_model(model_path: str) -> Any:
 
     class _LoRALLM:
         def invoke(self, prompt: str) -> str:
-            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
             import torch
+
+            # Qwen2.5-Instruct usa ChatML — aplicar chat template
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Você é um assistente médico especializado. "
+                        "Responda EXCLUSIVAMENTE com um objeto JSON válido, "
+                        "sem texto antes ou depois. "
+                        "Campos obrigatórios: possible_diagnoses (lista), "
+                        "recommended_exams (lista), reasoning (string), "
+                        "sources (lista), confidence (0.0-1.0), "
+                        "recommendation_type (sempre \"analysis\"). "
+                        "Nunca prescreva medicamentos."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ]
+
+            # apply_chat_template adiciona <|im_start|>/<|im_end|> automaticamente
+            if hasattr(tokenizer, "apply_chat_template"):
+                text = tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            else:
+                # fallback para modelos sem chat template
+                text = f"### Instrução\n{prompt}\n\n### Resposta\n"
+
+            inputs = tokenizer(text, return_tensors="pt").to(model.device)
+
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
                     max_new_tokens=512,
                     temperature=0.1,
                     do_sample=True,
+                    repetition_penalty=1.15,
+                    eos_token_id=tokenizer.eos_token_id,
                     pad_token_id=tokenizer.eos_token_id,
                 )
-            # Retorna só o texto gerado (sem o prompt)
+
+            # Retorna só o texto gerado (sem o prompt de entrada)
             input_len = inputs["input_ids"].shape[1]
             generated = outputs[0][input_len:]
             return tokenizer.decode(generated, skip_special_tokens=True)

@@ -88,21 +88,16 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
         else "Sem histórico de consultas anteriores."
     )
 
-    prompt = f"""### Instrução
-Você é um assistente médico especializado. Analise o caso clínico e responda EXCLUSIVAMENTE com um objeto JSON válido — sem introdução, sem explicação, sem texto antes ou depois do JSON.
-
-### Perfil do Paciente
+    prompt = f"""## Perfil do Paciente
 {profile_text}
 
-### Histórico de Consultas
+## Histórico de Consultas
 {history_text}
 
-### Pergunta do Médico
+## Pergunta do Médico
 {question}
 
-### Resposta
-Retorne SOMENTE um objeto JSON com os campos: possible_diagnoses (lista), recommended_exams (lista), reasoning (string), sources (lista), confidence (0.0-1.0), recommendation_type ("analysis").
-Nunca prescreva medicamentos. Nunca adicione texto fora do JSON."""
+Retorne SOMENTE JSON com: possible_diagnoses, recommended_exams, reasoning, sources, confidence (0.0-1.0), recommendation_type ("analysis")."""
 
     state["prompt"] = prompt
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
