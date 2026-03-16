@@ -77,3 +77,4 @@ e certifique-se de que o adapter LoRA está montado no Drive.
 | `MODEL_PATH` | — | Caminho do adapter LoRA (necessário se mock=false) |
 | `BASE_MODEL_ID` | `mistralai/Mistral-7B-Instruct-v0.1` | Modelo base HuggingFace |
 | `CHROMA_DB_PATH` | `./chroma_db` | Diretório de persistência ChromaDB |
+# Notebook atualizado em 2026-03-16T18:48:40Z
