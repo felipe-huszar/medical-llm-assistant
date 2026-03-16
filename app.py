@@ -119,10 +119,10 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
     return (
         f"✅ Paciente **{nome}** cadastrado com sucesso.",
         profile,
-        gr.update(selected=1),   # navega para aba de consulta
         cpf,                     # pre-preenche o CPF na aba de consulta
         _profile_text(profile),  # atualiza profile_display imediatamente
         "",                      # limpa pergunta anterior
+        gr.update(selected=1),   # navega para aba de consulta (por último)
     )
 
 
@@ -185,8 +185,21 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
         # ── Tab 2: Consulta ─────────────────────────────────────────────────
         with gr.Tab("🩺 Consulta", id=1):
             gr.Markdown("### Realizar Consulta Clínica")
-            consult_cpf    = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
+            consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
             profile_display = gr.Markdown("(aguardando CPF)")
+            
+            # Carrega perfil ao pressionar Enter no CPF
+            def load_profile_on_submit(cpf):
+                ok, cpf_or_err = _valid_cpf(cpf)
+                if not ok:
+                    return "⚠️ CPF inválido"
+                cpf = cpf_or_err
+                profile = get_patient(cpf)
+                if profile:
+                    return _profile_text(profile)
+                return "❌ Paciente não encontrado"
+            
+            consult_cpf.submit(fn=load_profile_on_submit, inputs=[consult_cpf], outputs=[profile_display])
             question_input = gr.Textbox(
                 label="Pergunta Clínica",
                 placeholder="Ex: Paciente com dores abdominais ao evacuar há 3 semanas. Quais diagnósticos considerar?",
@@ -212,7 +225,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
     register_btn.click(
         fn=register_patient,
         inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
-        outputs=[patient_status, current_patient, tabs, consult_cpf, profile_display, question_input],
+        outputs=[patient_status, current_patient, consult_cpf, profile_display, question_input, tabs],
     )
 
 if __name__ == "__main__":
