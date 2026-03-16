@@ -100,25 +100,9 @@ Você é um assistente médico especializado. Analise o caso clínico e responda
 ### Pergunta do Médico
 {question}
 
-### Formato de Resposta (siga exatamente)
-Retorne apenas o JSON abaixo preenchido, sem nenhum texto adicional:
-
-```json
-{{
-  "possible_diagnoses": ["diagnóstico 1", "diagnóstico 2"],
-  "recommended_exams": ["exame 1", "exame 2"],
-  "reasoning": "raciocínio clínico detalhado aqui",
-  "sources": ["fonte ou protocolo utilizado"],
-  "confidence": 0.75,
-  "recommendation_type": "analysis"
-}}
-```
-
-### Regras obrigatórias
-- Nunca prescreva medicamentos. Use recommendation_type "analysis" sempre.
-- confidence deve ser um número entre 0.0 e 1.0.
-- sources deve conter ao menos uma referência clínica.
-- Retorne SOMENTE o JSON. Nenhuma palavra fora do JSON."""
+### Resposta
+Retorne SOMENTE um objeto JSON com os campos: possible_diagnoses (lista), recommended_exams (lista), reasoning (string), sources (lista), confidence (0.0-1.0), recommendation_type ("analysis").
+Nunca prescreva medicamentos. Nunca adicione texto fora do JSON."""
 
     state["prompt"] = prompt
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
@@ -159,6 +143,7 @@ def safety_gate(state: ClinicalState) -> ClinicalState:
     state["safety_passed"] = validation["safety_passed"]
     state["needs_escalation"] = validation["needs_escalation"]
     state["sources"] = validation["sources"]
+    state["parsed_response"] = validation.get("parsed", {})
 
     if validation["needs_escalation"]:
         state["final_answer"] = format_escalation_message(validation["reason"])
@@ -179,12 +164,8 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     """Persist consultation to ChromaDB and format the final answer."""
     cpf = state["cpf"]
     question = state.get("doctor_question", "")
-    raw = state.get("raw_response", "")
-
-    try:
-        parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        parsed = {}
+    # Usa o JSON já parseado pelo safety gate (evita reparsar o raw_response)
+    parsed = state.get("parsed_response") or {}
 
     diagnoses = parsed.get("possible_diagnoses") or []
     exams = parsed.get("recommended_exams") or []

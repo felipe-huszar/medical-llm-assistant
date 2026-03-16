@@ -47,6 +47,7 @@ def _base_state(**overrides) -> ClinicalState:
         "consultation_history": [],
         "prompt": "",
         "raw_response": "",
+        "parsed_response": {},
         "safety_passed": False,
         "sources": [],
         "final_answer": "",
@@ -227,13 +228,13 @@ class TestSaveAndFormatNode:
 
     def test_final_answer_contains_diagnoses(self):
         """REQ-NODE-7: final_answer includes diagnoses."""
-        state = _base_state(raw_response=self._valid_raw(), safety_passed=True)
+        state = _base_state(raw_response=self._valid_raw(), parsed_response=json.loads(self._valid_raw()), safety_passed=True)
         result = save_and_format(state)
         assert "SII" in result["final_answer"] or "Crohn" in result["final_answer"]
 
     def test_final_answer_contains_exams(self):
         """REQ-NODE-7: final_answer includes recommended exams."""
-        state = _base_state(raw_response=self._valid_raw(), safety_passed=True)
+        state = _base_state(raw_response=self._valid_raw(), parsed_response=json.loads(self._valid_raw()), safety_passed=True)
         result = save_and_format(state)
         assert "Colonoscopia" in result["final_answer"] or "PCR" in result["final_answer"]
 
