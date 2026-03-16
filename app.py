@@ -160,7 +160,7 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
 # Gradio UI
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft()) as demo:
+with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".gradio-container {max-width: 1200px !important; margin: 0 auto;} .tabitem {padding: 20px !important;}") as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
     current_patient = gr.State(None)
