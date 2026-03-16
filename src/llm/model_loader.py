@@ -78,6 +78,12 @@ def load_lora_model(model_path: str) -> Any:
 
             inputs = tokenizer(text, return_tensors="pt").to(model.device)
 
+            # Qwen2.5 ChatML usa <|im_end|> como stop token além do EOS
+            stop_token_ids = [tokenizer.eos_token_id]
+            im_end_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
+            if im_end_id and im_end_id != tokenizer.eos_token_id:
+                stop_token_ids.append(im_end_id)
+
             with torch.no_grad():
                 outputs = model.generate(
                     **inputs,
@@ -85,7 +91,7 @@ def load_lora_model(model_path: str) -> Any:
                     temperature=0.1,
                     do_sample=True,
                     repetition_penalty=1.15,
-                    eos_token_id=tokenizer.eos_token_id,
+                    eos_token_id=stop_token_ids,
                     pad_token_id=tokenizer.eos_token_id,
                 )
 
