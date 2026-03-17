@@ -76,28 +76,23 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
     question = state.get("doctor_question", "")
 
     profile_text = (
-        f"Nome: {profile.get('nome', 'N/A')}\n"
-        f"Idade: {profile.get('idade', 'N/A')} anos\n"
-        f"Sexo: {profile.get('sexo', 'N/A')}\n"
-        f"Peso: {profile.get('peso', 'N/A')} kg"
+        f"Paciente {profile.get('sexo', 'N/A')}, {profile.get('idade', 'N/A')} anos, "
+        f"{profile.get('peso', 'N/A')} kg."
     ) if profile else "Paciente sem perfil cadastrado."
 
     history_text = (
-        "\n\n".join(history)
+        "\n---\n".join(history)
         if history
         else "Sem histórico de consultas anteriores."
     )
 
-    prompt = f"""## Perfil do Paciente
-{profile_text}
-
-## Histórico de Consultas
-{history_text}
-
-## Pergunta do Médico
-{question}
-
-Retorne SOMENTE JSON com: possible_diagnoses, recommended_exams, reasoning, sources, confidence (0.0-1.0), recommendation_type ("analysis")."""
+    # Formato alinhado com o treinamento do modelo (Lucas format)
+    # system + user via apply_chat_template no model_loader
+    prompt = (
+        f"Contexto do paciente:\n{profile_text}\n\n"
+        f"Histórico de consultas anteriores:\n{history_text}\n\n"
+        f"Sintomas relatados:\n{question}"
+    )
 
     state["prompt"] = prompt
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
@@ -131,22 +126,23 @@ def llm_reasoning(state: ClinicalState, llm: Any = None) -> ClinicalState:
 # ---------------------------------------------------------------------------
 
 def safety_gate(state: ClinicalState) -> ClinicalState:
-    """Validate LLM response against safety rules."""
+    """Validate LLM response against safety rules (prose format)."""
     raw = state.get("raw_response", "")
     validation = validate_response(raw)
 
     state["safety_passed"] = validation["safety_passed"]
     state["needs_escalation"] = validation["needs_escalation"]
-    state["sources"] = validation["sources"]
-    state["parsed_response"] = validation.get("parsed", {})
+    state["sources"] = []
+    state["parsed_response"] = validation.get("sections", {})
 
     if validation["needs_escalation"]:
         state["final_answer"] = format_escalation_message(validation["reason"])
         audit_log("safety_triggered", cpf=state["cpf"], node="safety_gate",
                   reason=validation["reason"], action="escalation")
     else:
+        sections = validation.get("sections", {})
         audit_log("node_executed", cpf=state["cpf"], node="safety_gate",
-                  safety_passed=True, sources_count=len(validation["sources"]))
+                  safety_passed=True, sections_found=list(sections.keys()))
 
     return state
 
@@ -156,61 +152,63 @@ def safety_gate(state: ClinicalState) -> ClinicalState:
 # ---------------------------------------------------------------------------
 
 def save_and_format(state: ClinicalState) -> ClinicalState:
-    """Persist consultation to ChromaDB and format the final answer."""
+    """Persist consultation to ChromaDB and format the final answer (prose format)."""
+    from src.safety.gate import _extract_list_items
+
     cpf = state["cpf"]
     question = state.get("doctor_question", "")
-    # Usa o JSON já parseado pelo safety gate (evita reparsar o raw_response)
-    parsed = state.get("parsed_response") or {}
+    raw = state.get("raw_response", "")
+    sections = state.get("parsed_response") or {}
 
-    diagnoses = parsed.get("possible_diagnoses") or []
-    exams = parsed.get("recommended_exams") or []
-    reasoning = parsed.get("reasoning") or ""
-    sources = parsed.get("sources") or []
-    confidence = parsed.get("confidence") or 0.0
+    # Extrai seções da prosa
+    resumo      = sections.get("Resumo clínico", "").strip()
+    raciocinio  = sections.get("Raciocínio clínico", "").strip()
+    hipotese    = sections.get("Hipótese diagnóstica principal", "").strip()
+    diferenciais_raw = sections.get("Diagnósticos diferenciais", "")
+    exames_raw  = sections.get("Exames recomendados", "")
 
-    # Format human-readable answer
-    def _fmt_diag(d):
-        if isinstance(d, dict):
-            name = d.get("name") or d.get("diagnosis") or str(d)
-            conf = d.get("confidence") or d.get("score")
-            return f"  • {name}" + (f" *(confiança: {conf:.0%})*" if isinstance(conf, float) else "")
-        return f"  • {d}"
+    diferenciais = _extract_list_items(diferenciais_raw)
+    exames       = _extract_list_items(exames_raw)
 
-    def _fmt_exam(e):
-        if isinstance(e, dict):
-            return f"  • {e.get('exam') or e.get('name') or str(e)}"
-        return f"  • {e}"
+    # --- Monta markdown rico para o Gradio ---
+    def _bullet_list(items):
+        return "\n".join(f"  • {i}" for i in items) if items else "  • N/A"
 
-    diag_text = "\n".join(_fmt_diag(d) for d in diagnoses) if diagnoses else "  • N/A"
-    exam_text = "\n".join(_fmt_exam(e) for e in exams) if exams else "  • N/A"
-    src_text = ", ".join(sources) if sources else "N/A"
+    parts = ["## 🩺 Análise Clínica\n"]
 
-    answer = (
-        f"## 🩺 Análise Clínica\n\n"
-        f"### Possíveis Diagnósticos\n{diag_text}\n\n"
-        f"### Exames Recomendados\n{exam_text}\n\n"
-        f"### Raciocínio Clínico\n{reasoning}\n\n"
-        f"---\n"
-        f"**Fontes:** {src_text}  \n"
-        f"**Confiança:** {confidence:.0%}\n\n"
-        f"> ⚕️ *Esta análise é apenas orientativa. A decisão clínica é responsabilidade do médico.*"
-    )
+    if resumo:
+        parts.append(f"### 📋 Resumo Clínico\n{resumo}\n")
 
+    if hipotese:
+        parts.append(f"### 🎯 Hipótese Diagnóstica Principal\n**{hipotese}**\n")
+
+    if diferenciais:
+        parts.append(f"### 🔍 Diagnósticos Diferenciais\n{_bullet_list(diferenciais)}\n")
+
+    if exames:
+        parts.append(f"### 🧪 Exames Recomendados\n{_bullet_list(exames)}\n")
+
+    if raciocinio:
+        parts.append(f"### 💭 Raciocínio Clínico\n{raciocinio}\n")
+
+    parts.append("---\n> ⚕️ *Esta análise é apenas orientativa. A decisão clínica final é responsabilidade do médico assistente.*")
+
+    answer = "\n".join(parts)
     state["final_answer"] = answer
 
     audit_log("consultation_saved", cpf=cpf, node="save_and_format",
-              diagnoses_count=len(diagnoses), exams_count=len(exams),
-              confidence=confidence, sources=sources)
+              hipotese=hipotese, diferenciais_count=len(diferenciais),
+              exames_count=len(exames), sections_found=list(sections.keys()))
 
-    # Persist to ChromaDB
+    # Salva prosa no ChromaDB (contexto para próximas consultas)
     save_consultation(
         cpf=cpf,
         question=question,
-        answer=answer,
+        answer=raw,  # salva resposta bruta para contexto de RAG
         metadata={
-            "diagnoses": json.dumps(diagnoses),
-            "exams": json.dumps(exams),
-            "confidence": str(confidence),
+            "hipotese": hipotese,
+            "exames": json.dumps(exames),
+            "diferenciais": json.dumps(diferenciais),
         },
     )
 

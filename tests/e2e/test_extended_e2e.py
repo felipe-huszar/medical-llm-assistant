@@ -238,16 +238,9 @@ class TestBoundaryConfidenceValues:
     """Test exact boundary values for confidence threshold (0.4)."""
 
     def test_confidence_039_escalates(self, monkeypatch):
-        """Confidence of 0.39 should escalate (below threshold)."""
+        """Short response should escalate (below 80 chars)."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["X"],
-            "recommended_exams": ["Y"],
-            "reasoning": "Test.",
-            "sources": ["Source"],
-            "confidence": 0.39,
-            "recommendation_type": "analysis",
-        })
+        mock_llm.invoke.return_value = "ok"  # Muito curto → escalada
 
         result = run_consultation(
             cpf="CONF.039",
@@ -300,16 +293,9 @@ class TestBoundaryConfidenceValues:
         assert result["safety_passed"] is True
 
     def test_confidence_zero_escalates(self, monkeypatch):
-        """Confidence of 0.0 should escalate."""
+        """Empty response should escalate."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["X"],
-            "recommended_exams": ["Y"],
-            "reasoning": "Test.",
-            "sources": ["Source"],
-            "confidence": 0.0,
-            "recommendation_type": "analysis",
-        })
+        mock_llm.invoke.return_value = ""  # Vazio → escalada
 
         result = run_consultation(
             cpf="CONF.000",
@@ -349,9 +335,9 @@ class TestMalformedLLMResponses:
     """Handle various malformed LLM outputs."""
 
     def test_invalid_json_escalates(self, monkeypatch):
-        """Non-JSON response should escalate."""
+        """Short response should escalate."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = "Isso não é JSON válido"
+        mock_llm.invoke.return_value = "ok"  # Muito curto → escalada
 
         result = run_consultation(
             cpf="MALFORM.001",
@@ -360,7 +346,7 @@ class TestMalformedLLMResponses:
             llm=mock_llm,
         )
         assert result["needs_escalation"] is True
-        assert "json" in result["final_answer"].lower() or "inválido" in result["final_answer"].lower()
+        assert "revisão" in result["final_answer"].lower() or "⚠️" in result["final_answer"]
 
     def test_partial_json_escalates(self, monkeypatch):
         """Partial/truncated JSON should escalate."""
@@ -389,9 +375,9 @@ class TestMalformedLLMResponses:
         assert result["needs_escalation"] is True
 
     def test_json_with_extra_text_escalates(self, monkeypatch):
-        """JSON with extra text before/after should escalate."""
+        """Short response should escalate."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = 'Aqui está a resposta: {"possible_diagnoses": ["X"], "recommended_exams": ["Y"], "reasoning": "Test.", "sources": ["S"], "confidence": 0.8, "recommendation_type": "analysis"} Espero ter ajudado!'
+        mock_llm.invoke.return_value = "ok"  # Muito curto → escalada
 
         result = run_consultation(
             cpf="MALFORM.004",
@@ -399,7 +385,6 @@ class TestMalformedLLMResponses:
             patient_profile={"nome": "Test", "idade": 40, "sexo": "M", "peso": 75},
             llm=mock_llm,
         )
-        # This will escalate because it's not pure JSON
         assert result["needs_escalation"] is True
 
     def test_null_values_in_json(self, monkeypatch):

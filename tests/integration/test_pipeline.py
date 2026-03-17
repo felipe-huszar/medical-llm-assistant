@@ -117,16 +117,9 @@ class TestRunConsultationExistingPatient:
 
 class TestPipelineSafetyIntegration:
     def test_escalation_path_for_invalid_response(self, monkeypatch):
-        """Safety gate triggers escalation for invalid LLM response."""
+        """Safety gate triggers escalation for short LLM response."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["X"],
-            "recommended_exams": ["Y"],
-            "reasoning": "r",
-            "sources": [],  # Empty → escalation
-            "confidence": 0.7,
-            "recommendation_type": "analysis",
-        })
+        mock_llm.invoke.return_value = "ok"  # Muito curto → escalada
 
         result = run_consultation(
             cpf="SAFETY.TEST.001-00",

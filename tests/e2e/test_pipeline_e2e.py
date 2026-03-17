@@ -69,7 +69,7 @@ class TestNewPatientFlow:
         assert result["needs_escalation"] is False
         assert len(result["final_answer"]) > 0
         assert "##" in result["final_answer"] or "**" in result["final_answer"]  # Markdown
-        assert result["sources"]  # non-empty sources
+        assert "Análise Clínica" in result["final_answer"] or "Hipótese" in result["final_answer"]
 
     def test_new_patient_with_gi_symptoms(self, pipeline):
         """GI symptoms trigger domain-specific diagnoses."""
@@ -140,16 +140,9 @@ class TestSafetyEscalation:
         from src.graph.state import ClinicalState
         from unittest.mock import MagicMock
 
-        # Create a mock LLM that returns low confidence
+        # Create a mock LLM that returns short response (escalates on < 80 chars)
         low_conf_llm = MagicMock()
-        low_conf_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["Indeterminado"],
-            "recommended_exams": ["Hemograma"],
-            "reasoning": "Dados insuficientes.",
-            "sources": ["Protocolo"],
-            "confidence": 0.25,  # Below threshold
-            "recommendation_type": "analysis",
-        })
+        low_conf_llm.invoke.return_value = "ok"  # Muito curto → escalada
 
         from src.graph.pipeline import build_graph
         pipeline_low_conf = build_graph(llm=low_conf_llm)
@@ -180,14 +173,7 @@ class TestSafetyEscalation:
         from unittest.mock import MagicMock
 
         no_sources_llm = MagicMock()
-        no_sources_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["X"],
-            "recommended_exams": ["Y"],
-            "reasoning": "Raciocínio sem fontes.",
-            "sources": [],  # Empty!
-            "confidence": 0.8,
-            "recommendation_type": "analysis",
-        })
+        no_sources_llm.invoke.return_value = "ok"  # Muito curto → escalada
 
         from src.graph.pipeline import build_graph
         pipeline_no_src = build_graph(llm=no_sources_llm)
@@ -217,14 +203,20 @@ class TestSafetyEscalation:
         from unittest.mock import MagicMock
 
         prescription_llm = MagicMock()
-        prescription_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["Infecção"],
-            "recommended_exams": ["Cultura"],
-            "reasoning": "Prescrever antibiótico.",
-            "sources": ["Protocolo"],
-            "confidence": 0.9,
-            "recommendation_type": "prescription",  # Forbidden!
-        })
+        prescription_llm.invoke.return_value = """Resumo clínico:
+Paciente com infecção.
+
+Raciocínio clínico:
+Prescrevo amoxicilina 500mg/dia para o paciente.
+
+Hipótese diagnóstica principal:
+Infecção bacteriana
+
+Diagnósticos diferenciais:
+- Vírus
+
+Exames recomendados:
+- Cultura"""
 
         from src.graph.pipeline import build_graph
         pipeline_presc = build_graph(llm=prescription_llm)
@@ -339,25 +331,23 @@ class TestStructuredOutput:
         result = pipeline.invoke(state)
         answer = result["final_answer"]
 
-        # Should contain percentage or confidence mention
-        assert "%" in answer or "confiança" in answer.lower() or "confidence" in answer.lower()
+        # Should contain clinical analysis sections
+        assert "Análise Clínica" in answer or "Hipótese" in answer or "Raciocínio" in answer
 
 
 class TestMockLLMIntegration:
     """REQ-E2E-6: MockLLM produces valid clinical responses."""
 
-    def test_mock_llm_returns_valid_json(self, mock_llm):
-        """MockLLM always returns parseable JSON."""
+    def test_mock_llm_returns_prose(self, mock_llm):
+        """MockLLM always returns prose with clinical sections."""
         for prompt in ["dor abdominal", "cefaleia", "dispneia", "glicemia", "xyz unknown"]:
             raw = mock_llm.invoke(prompt)
-            parsed = json.loads(raw)
-            assert "possible_diagnoses" in parsed
-            assert "recommended_exams" in parsed
-            assert "confidence" in parsed
+            assert isinstance(raw, str)
+            assert "Hipótese diagnóstica principal" in raw
+            assert "Exames recomendados" in raw
 
     def test_mock_llm_never_prescription(self, mock_llm):
-        """MockLLM never returns prescription type."""
+        """MockLLM never returns prescription language."""
         for prompt in ["dor abdominal", "cefaleia", "dispneia", "glicemia", "xyz unknown"]:
             raw = mock_llm.invoke(prompt)
-            parsed = json.loads(raw)
-            assert parsed["recommendation_type"] != "prescription"
+            assert "prescrevo" not in raw.lower()

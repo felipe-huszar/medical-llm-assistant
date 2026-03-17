@@ -1,146 +1,138 @@
 """
-mock_llm.py - Deterministic mock LLM returning realistic medical JSON responses.
+mock_llm.py - Mock LLM retornando respostas em prosa no formato clínico (Lucas format).
 """
 
-import json
 import re
 
-# Canned responses keyed by symptom keywords
+# Respostas em prosa por palavras-chave de sintomas
 _RESPONSES = [
     {
         "keywords": ["abdomi", "intestin", "evacua", "diarreia", "fezes"],
-        "response": {
-            "possible_diagnoses": [
-                "Síndrome do intestino irritável",
-                "Doença de Crohn",
-                "Colite ulcerativa",
-            ],
-            "recommended_exams": [
-                "Colonoscopia",
-                "Hemograma completo",
-                "PCR (Proteína C-reativa)",
-                "Calprotectina fecal",
-            ],
-            "reasoning": (
-                "Com base nos sintomas de dores abdominais associadas à evacuação, "
-                "o quadro sugere patologia inflamatória ou funcional do intestino. "
-                "Recomenda-se investigação endoscópica e marcadores inflamatórios "
-                "para diferenciar entre etiologias funcionais e orgânicas."
-            ),
-            "sources": ["Protocolo GI-2024", "UpToDate: Irritable Bowel Syndrome"],
-            "confidence": 0.75,
-            "recommendation_type": "analysis",
-        },
+        "response": """Resumo clínico:
+Paciente apresentando sintomas gastrointestinais com dor abdominal relacionada à evacuação.
+
+Raciocínio clínico:
+Quadro sugere patologia inflamatória ou funcional do intestino. A ausência de sangramento nas fezes e o caráter crônico apontam para etiologia funcional, mas causas orgânicas devem ser excluídas.
+
+Hipótese diagnóstica principal:
+Síndrome do intestino irritável
+
+Diagnósticos diferenciais:
+- Doença de Crohn
+- Colite ulcerativa
+- Doença celíaca
+
+Exames recomendados:
+- Colonoscopia com biópsia
+- Hemograma completo
+- PCR (Proteína C-reativa)
+- Calprotectina fecal""",
     },
     {
         "keywords": ["cefaleia", "cabeça", "enxaqueca", "dor de cabeça", "migran"],
-        "response": {
-            "possible_diagnoses": [
-                "Enxaqueca sem aura",
-                "Cefaleia tensional",
-                "Cefaleia em salvas",
-            ],
-            "recommended_exams": [
-                "Ressonância magnética do crânio",
-                "Avaliação oftalmológica",
-                "Pressão arterial seriada",
-            ],
-            "reasoning": (
-                "Quadro de cefaleia recorrente requer exclusão de causas secundárias "
-                "antes do diagnóstico de cefaleia primária. Neuroimagem indicada em "
-                "casos com sinais de alarme (início súbito, alteração de padrão, febre)."
-            ),
-            "sources": ["Protocolo Neurologia-2023", "ICHD-3 Classification"],
-            "confidence": 0.78,
-            "recommendation_type": "analysis",
-        },
+        "response": """Resumo clínico:
+Paciente com quadro de cefaleia recorrente.
+
+Raciocínio clínico:
+Necessário excluir causas secundárias antes do diagnóstico de cefaleia primária. Neuroimagem indicada em casos com sinais de alarme: início súbito em trovoada, alteração de padrão, febre ou déficit neurológico associado.
+
+Hipótese diagnóstica principal:
+Enxaqueca sem aura
+
+Diagnósticos diferenciais:
+- Cefaleia tensional
+- Cefaleia em salvas
+- Hipertensão intracraniana
+
+Exames recomendados:
+- Ressonância magnética do crânio
+- Avaliação oftalmológica
+- Pressão arterial seriada""",
     },
     {
-        "keywords": ["cardio", "coração", "peito", "chest", "dispneia", "falta de ar", "taquicardia"],
-        "response": {
-            "possible_diagnoses": [
-                "Doença arterial coronariana",
-                "Insuficiência cardíaca",
-                "Arritmia cardíaca",
-            ],
-            "recommended_exams": [
-                "ECG de repouso e esforço",
-                "Ecocardiograma",
-                "Troponina e BNP",
-                "Holter 24h",
-            ],
-            "reasoning": (
-                "Sintomas cardiovasculares exigem avaliação funcional e estrutural do coração. "
-                "Marcadores de necrose miocárdica e peptídeos natriuréticos auxiliam no "
-                "diagnóstico diferencial entre isquemia aguda e disfunção crônica."
-            ),
-            "sources": ["Diretriz SBC 2024", "AHA/ACC Guidelines"],
-            "confidence": 0.72,
-            "recommendation_type": "analysis",
-        },
+        "keywords": ["cardio", "coração", "peito", "dispneia", "falta de ar", "taquicardia", "edema", "fadiga"],
+        "response": """Resumo clínico:
+Paciente com sintomas cardiovasculares de dispneia progressiva e edema.
+
+Raciocínio clínico:
+Dispneia progressiva associada a edema periférico sugere comprometimento cardiopulmonar. A fadiga concomitante reforça hipótese de disfunção ventricular ou sobrecarga volêmica.
+
+Hipótese diagnóstica principal:
+Insuficiência cardíaca descompensada
+
+Diagnósticos diferenciais:
+- Tromboembolismo pulmonar
+- Pneumonia bilateral
+- Insuficiência renal crônica
+
+Exames recomendados:
+- Ecocardiograma
+- BNP/NT-proBNP
+- Radiografia de tórax
+- ECG de repouso""",
     },
     {
         "keywords": ["diabetes", "glicemia", "açúcar", "insulina", "polidipsia", "poliuria"],
-        "response": {
-            "possible_diagnoses": [
-                "Diabetes mellitus tipo 2",
-                "Diabetes mellitus tipo 1",
-                "Pré-diabetes",
-            ],
-            "recommended_exams": [
-                "Glicemia de jejum",
-                "HbA1c",
-                "TTGO (Teste de Tolerância à Glicose Oral)",
-                "Função renal (creatinina, uréia)",
-            ],
-            "reasoning": (
-                "O quadro clínico é sugestivo de distúrbio do metabolismo glicídico. "
-                "HbA1c fornece controle glicêmico dos últimos 3 meses e é critério "
-                "diagnóstico para DM segundo ADA 2024."
-            ),
-            "sources": ["ADA Standards of Care 2024", "SBD Diretrizes 2024"],
-            "confidence": 0.82,
-            "recommendation_type": "analysis",
-        },
+        "response": """Resumo clínico:
+Paciente com sintomas sugestivos de distúrbio metabólico glicídico.
+
+Raciocínio clínico:
+A tríade clássica polidipsia, poliúria e perda de peso é altamente sugestiva de diabetes mellitus. HbA1c é o padrão ouro para diagnóstico e controle glicêmico.
+
+Hipótese diagnóstica principal:
+Diabetes mellitus tipo 2
+
+Diagnósticos diferenciais:
+- Diabetes mellitus tipo 1
+- Pré-diabetes
+- Diabetes insípido
+
+Exames recomendados:
+- Glicemia de jejum
+- HbA1c
+- TTGO (Teste de Tolerância à Glicose Oral)
+- Função renal (creatinina, ureia)""",
     },
 ]
 
-_DEFAULT_RESPONSE = {
-    "possible_diagnoses": [
-        "Diagnóstico indeterminado — requer avaliação clínica presencial",
-        "Síndrome inespecífica",
-    ],
-    "recommended_exams": [
-        "Hemograma completo",
-        "Bioquímica básica (glicemia, creatinina, sódio, potássio)",
-        "Urina tipo I",
-    ],
-    "reasoning": (
-        "Não foi possível identificar padrão sintomático específico com os dados fornecidos. "
-        "Recomenda-se avaliação clínica presencial e exames de triagem básica."
-    ),
-    "sources": ["Protocolo Triagem Geral-2024"],
-    "confidence": 0.45,
-    "recommendation_type": "analysis",
-}
+_DEFAULT_RESPONSE = """Resumo clínico:
+Paciente com quadro clínico inespecífico necessitando avaliação complementar.
+
+Raciocínio clínico:
+Não foi possível identificar padrão sintomático específico com os dados fornecidos. Recomenda-se avaliação clínica presencial e exames de triagem básica.
+
+Hipótese diagnóstica principal:
+Síndrome inespecífica — requer avaliação presencial
+
+Diagnósticos diferenciais:
+- A definir conforme avaliação clínica
+- Aguardar resultado de exames básicos
+
+Exames recomendados:
+- Hemograma completo
+- Bioquímica básica (glicemia, creatinina, sódio, potássio)
+- Urina tipo I"""
 
 
 class MockLLM:
-    """Deterministic mock LLM for development and testing."""
+    """Mock LLM determinístico retornando prosa no formato clínico."""
 
     def invoke(self, prompt: str) -> str:
-        """Match keywords only in the current question (after '## Pergunta do Médico')."""
-        # Extrai apenas a pergunta atual, ignorando histórico de consultas anteriores
-        marker = "## Pergunta do Médico"
+        """Busca keywords na pergunta atual."""
+        # Extrai apenas a pergunta atual
+        marker = "Sintomas relatados:"
         if marker in prompt:
             question_text = prompt.split(marker, 1)[1]
         else:
-            question_text = prompt
+            # Fallback para marcador antigo
+            marker2 = "## Pergunta do Médico"
+            question_text = prompt.split(marker2, 1)[1] if marker2 in prompt else prompt
+
         question_lower = question_text.lower()
         for entry in _RESPONSES:
             if any(kw in question_lower for kw in entry["keywords"]):
-                return json.dumps(entry["response"], ensure_ascii=False)
-        return json.dumps(_DEFAULT_RESPONSE, ensure_ascii=False)
+                return entry["response"]
+        return _DEFAULT_RESPONSE
 
     def __call__(self, prompt: str) -> str:
         return self.invoke(prompt)

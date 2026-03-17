@@ -14,7 +14,7 @@ class ClinicalState(TypedDict, total=False):
     doctor_question: str
     prompt: str
     raw_response: str
-    parsed_response: dict           # JSON parseado pelo safety gate
+    parsed_response: dict           # Seções extraídas da prosa (resumo, hipotese, etc.)
     safety_passed: bool
     sources: list[str]
     final_answer: str

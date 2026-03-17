@@ -1,120 +1,123 @@
 """
-Unit tests for src/safety/gate.py
-
-Requirements validated:
-  - REQ-SAFETY-1: recommendation_type == "prescription" → needs_escalation=True
-  - REQ-SAFETY-2: confidence < 0.4 → needs_escalation=True
-  - REQ-SAFETY-3: empty sources → needs_escalation=True, safety_passed=False
-  - REQ-SAFETY-4: valid response → safety_passed=True, needs_escalation=False
-  - REQ-SAFETY-5: invalid JSON → needs_escalation=True
-  - REQ-SAFETY-6: escalation message is informative
+Tests for safety gate — prose format validation.
 """
-
-import json
 import pytest
+from src.safety.gate import validate_response, format_escalation_message, _extract_sections, _extract_list_items
 
-from src.safety.gate import validate_response, format_escalation_message
+# Resposta clínica válida no formato Lucas
+_VALID_PROSE = """Resumo clínico:
+Paciente com dispneia progressiva e edema periférico.
 
+Raciocínio clínico:
+Dispneia progressiva pode indicar comprometimento cardiopulmonar.
 
-def _make_response(**overrides) -> str:
-    """Helper to build a valid JSON response with optional field overrides."""
-    base = {
-        "possible_diagnoses": ["SII", "Crohn"],
-        "recommended_exams": ["Colonoscopia"],
-        "reasoning": "Análise baseada nos sintomas.",
-        "sources": ["Protocolo GI-2024"],
-        "confidence": 0.75,
-        "recommendation_type": "analysis",
-    }
-    base.update(overrides)
-    return json.dumps(base)
+Hipótese diagnóstica principal:
+Insuficiência cardíaca descompensada
+
+Diagnósticos diferenciais:
+- Tromboembolismo pulmonar
+- Pneumonia bilateral
+
+Exames recomendados:
+- Ecocardiograma
+- BNP
+- Radiografia de tórax"""
 
 
 class TestSafetyGateRules:
     def test_valid_response_passes(self):
-        """REQ-SAFETY-4: well-formed response passes all rules."""
-        result = validate_response(_make_response())
-        assert result["safety_passed"] is True
-        assert result["needs_escalation"] is False
-        assert result["sources"] == ["Protocolo GI-2024"]
-
-    def test_prescription_type_escalates(self):
-        """REQ-SAFETY-1: prescription type triggers escalation."""
-        result = validate_response(_make_response(recommendation_type="prescription"))
-        assert result["needs_escalation"] is True
-        assert result["safety_passed"] is False
-        assert "prescription" in result["reason"].lower() or "prescrição" in result["reason"].lower()
-
-    def test_low_confidence_escalates(self):
-        """REQ-SAFETY-2: confidence < 0.4 triggers escalation."""
-        result = validate_response(_make_response(confidence=0.3))
-        assert result["needs_escalation"] is True
-        assert result["safety_passed"] is False
-        assert "0.3" in result["reason"] or "confiança" in result["reason"].lower()
-
-    def test_confidence_exactly_04_passes(self):
-        """REQ-SAFETY-2: confidence == 0.4 is NOT escalated (boundary)."""
-        result = validate_response(_make_response(confidence=0.4))
+        result = validate_response(_VALID_PROSE)
         assert result["safety_passed"] is True
         assert result["needs_escalation"] is False
 
-    def test_confidence_below_threshold_edge(self):
-        """REQ-SAFETY-2: confidence = 0.39 escalates."""
-        result = validate_response(_make_response(confidence=0.39))
+    def test_short_response_escalates(self):
+        result = validate_response("ok")
         assert result["needs_escalation"] is True
-
-    def test_empty_sources_escalates(self):
-        """REQ-SAFETY-3: empty sources triggers escalation."""
-        result = validate_response(_make_response(sources=[]))
-        assert result["needs_escalation"] is True
-        assert result["safety_passed"] is False
-
-    def test_missing_sources_key_escalates(self):
-        """REQ-SAFETY-3: missing sources key is treated as empty."""
-        payload = {
-            "possible_diagnoses": ["X"],
-            "recommended_exams": ["Y"],
-            "reasoning": "ok",
-            "confidence": 0.7,
-            "recommendation_type": "analysis",
-            # 'sources' key omitted
-        }
-        result = validate_response(json.dumps(payload))
-        assert result["needs_escalation"] is True
-
-    def test_invalid_json_escalates(self):
-        """REQ-SAFETY-5: invalid JSON string triggers escalation."""
-        result = validate_response("this is not json {{{")
-        assert result["needs_escalation"] is True
-        assert result["safety_passed"] is False
-        assert "json" in result["reason"].lower() or "json" in result["reason"].lower()
+        assert "curta" in result["reason"].lower()
 
     def test_empty_string_escalates(self):
-        """REQ-SAFETY-5: empty string is invalid JSON."""
         result = validate_response("")
         assert result["needs_escalation"] is True
 
-    def test_high_confidence_analysis_passes(self):
-        """REQ-SAFETY-4: high confidence analysis response passes cleanly."""
-        result = validate_response(_make_response(confidence=0.9, sources=["SBC", "AHA"]))
+    def test_prescription_language_escalates(self):
+        result = validate_response(_VALID_PROSE + "\nprescrevo amoxicilina 500mg/dia")
+        assert result["needs_escalation"] is True
+        assert "prescrição" in result["reason"].lower()
+
+    def test_dose_prescription_escalates(self):
+        result = validate_response("tome 2 comprimidos de 500mg/dia de enalapril")
+        # Muito curto OU contém prescrição — ambos escapam
+        assert result["needs_escalation"] is True
+
+    def test_sections_extracted(self):
+        result = validate_response(_VALID_PROSE)
+        sections = result["sections"]
+        assert "Hipótese diagnóstica principal" in sections
+        assert "Diagnósticos diferenciais" in sections
+        assert "Exames recomendados" in sections
+
+    def test_hipotese_content(self):
+        result = validate_response(_VALID_PROSE)
+        hipotese = result["sections"].get("Hipótese diagnóstica principal", "")
+        assert "Insuficiência cardíaca" in hipotese
+
+    def test_safety_passed_true_on_valid(self):
+        result = validate_response(_VALID_PROSE)
         assert result["safety_passed"] is True
-        assert result["sources"] == ["SBC", "AHA"]
+
+    def test_safety_passed_false_on_short(self):
+        result = validate_response("texto curto")
+        assert result["safety_passed"] is False
+
+    def test_high_quality_response_passes(self):
+        long_prose = _VALID_PROSE + "\n\nInformações adicionais relevantes para o caso clínico apresentado pelo médico."
+        result = validate_response(long_prose)
+        assert result["safety_passed"] is True
+
+
+class TestExtractSections:
+    def test_extracts_all_sections(self):
+        sections = _extract_sections(_VALID_PROSE)
+        assert "Resumo clínico" in sections
+        assert "Raciocínio clínico" in sections
+        assert "Hipótese diagnóstica principal" in sections
+        assert "Diagnósticos diferenciais" in sections
+        assert "Exames recomendados" in sections
+
+    def test_hipotese_value(self):
+        sections = _extract_sections(_VALID_PROSE)
+        assert "Insuficiência cardíaca" in sections["Hipótese diagnóstica principal"]
+
+    def test_empty_text_returns_empty(self):
+        sections = _extract_sections("")
+        assert sections == {}
+
+
+class TestExtractListItems:
+    def test_dash_items(self):
+        text = "- item um\n- item dois\n- item três"
+        items = _extract_list_items(text)
+        assert len(items) == 3
+        assert "item um" in items
+
+    def test_bullet_items(self):
+        text = "• BNP\n• Ecocardiograma"
+        items = _extract_list_items(text)
+        assert len(items) == 2
+
+    def test_empty_returns_empty(self):
+        assert _extract_list_items("") == []
 
 
 class TestEscalationMessage:
-    def test_escalation_message_contains_reason(self):
-        """REQ-SAFETY-6: escalation message includes the failure reason."""
-        msg = format_escalation_message("Confiança muito baixa (0.30)")
-        assert "0.30" in msg or "Confiança" in msg
+    def test_escalation_contains_reason(self):
+        msg = format_escalation_message("resposta muito curta")
+        assert "resposta muito curta" in msg
 
-    def test_escalation_message_is_warning(self):
-        """REQ-SAFETY-6: escalation message signals need for medical review."""
-        msg = format_escalation_message("algum motivo")
-        # deve ter algum indicador de aviso
-        assert any(w in msg for w in ["⚠️", "revisão", "especialista", "avaliação"])
+    def test_escalation_is_warning(self):
+        msg = format_escalation_message("qualquer razão")
+        assert "⚠️" in msg
 
-    def test_escalation_message_no_prescription(self):
-        """REQ-SAFETY-6: escalation message never implies medication prescription."""
-        msg = format_escalation_message("qualquer motivo")
-        assert "prescreva" not in msg.lower()
-        assert "tome" not in msg.lower()
+    def test_escalation_no_prescription(self):
+        msg = format_escalation_message("teste")
+        assert "prescrevo" not in msg.lower()

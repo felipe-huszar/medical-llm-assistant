@@ -1,138 +1,130 @@
 """
-gate.py - Safety gate for LLM responses.
+gate.py - Safety gate for LLM responses (prose format).
 
 Rules:
-  1. recommendation_type == "prescription" → needs_escalation = True
-  2. confidence < 0.4 → needs_escalation = True
-  3. sources is empty → invalid response → needs_escalation = True
-  4. Never return as direct prescription.
+  1. Resposta muito curta (< 80 chars) → escalation
+  2. Contém linguagem de prescrição direta → escalation
+  3. Seções obrigatórias ausentes → aviso (não escalation)
 """
 
-import json
+import re
 from typing import Any
 
+# Palavras que indicam prescrição direta (não permitida)
+_PRESCRIPTION_PATTERNS = [
+    r"\bprescrevo\b",
+    r"\bprescrito\b",
+    r"\btome\s+\d",
+    r"\d+\s*mg/dia\b",
+    r"\bposologia\b",
+    r"\bvia oral\b.*\bcomprimido",
+]
 
-def _prose_to_json(text: str) -> str:
-    """
-    Converte resposta em prosa livre para JSON mínimo válido.
-    Usado quando o modelo retorna texto narrativo em vez de JSON.
-    """
-    import re as _re
-    import json as _json
-
-    # Verifica se menciona prescrição (bloqueio de segurança)
-    prescription_keywords = ["prescrevo", "prescrito", "tome ", "mg/dia", "comprimido"]
-    rec_type = "prescription" if any(k in text.lower() for k in prescription_keywords) else "analysis"
-
-    # Extrai possíveis diagnósticos (linhas com "diagnóstico", "suspeita", "hipótese", bullet "-" ou "•")
-    diagnoses = []
-    for line in text.split("\n"):
-        line = line.strip()
-        if _re.match(r"^[-•*\d\.]+\s+", line):
-            clean = _re.sub(r"^[-•*\d\.]+\s+", "", line).strip()
-            if 5 < len(clean) < 120:
-                diagnoses.append(clean)
-    if not diagnoses:
-        diagnoses = ["Análise clínica — ver raciocínio completo"]
-
-    # Exames recomendados
-    exam_keywords = ["exame", "hemograma", "tomografia", "raio", "ultrassom", "ressonância",
-                     "ecocardiograma", "eletrocardiograma", "colonoscopia", "endoscopia"]
-    exams = []
-    for line in text.split("\n"):
-        if any(k in line.lower() for k in exam_keywords):
-            clean = line.strip().lstrip("-•* ")
-            if 5 < len(clean) < 120:
-                exams.append(clean)
-    if not exams:
-        exams = ["Avaliação clínica complementar conforme julgamento médico"]
-
-    result = {
-        "possible_diagnoses": diagnoses[:5],
-        "recommended_exams": exams[:5],
-        "reasoning": text.strip()[:1000],
-        "sources": ["Resposta gerada pelo modelo LoRA fine-tuned"],
-        "confidence": 0.65,
-        "recommendation_type": rec_type,
-    }
-    return _json.dumps(result, ensure_ascii=False)
+_EXPECTED_SECTIONS = [
+    "Hipótese diagnóstica principal",
+    "Diagnósticos diferenciais",
+    "Exames recomendados",
+]
 
 
 def validate_response(raw_response: str) -> dict:
     """
-    Parse and validate an LLM JSON response.
+    Valida resposta em prosa do modelo clínico.
 
-    Returns a dict with keys:
+    Returns dict with keys:
       - safety_passed (bool)
       - needs_escalation (bool)
-      - sources (list[str])
-      - parsed (dict)   # the parsed JSON or {}
-      - reason (str)    # why it failed, if applicable
+      - sections (dict)   # seções extraídas da prosa
+      - reason (str)
     """
     result = {
         "safety_passed": False,
         "needs_escalation": False,
-        "sources": [],
-        "parsed": {},
+        "sections": {},
         "reason": "",
     }
 
-    # --- Parse JSON (aceita markdown ```json...```, JSON embutido ou prosa livre) ---
-    import re as _re
     text = raw_response.strip()
 
-    # 1. Tenta extrair bloco ```json ... ```
-    md_match = _re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, _re.DOTALL)
-    if md_match:
-        text = md_match.group(1)
-    else:
-        # 2. Tenta extrair primeiro objeto JSON do texto
-        json_match = _re.search(r"\{.*\}", text, _re.DOTALL)
-        if json_match:
-            text = json_match.group(0)
-        else:
-            # 3. Fallback: modelo retornou prosa livre — monta JSON mínimo
-            # Só ativa se houver conteúdo suficiente (resposta real, não erro)
-            if len(raw_response.strip()) >= 100:
-                text = _prose_to_json(raw_response)
-            else:
-                result["needs_escalation"] = True
-                result["reason"] = f"Resposta LLM não é JSON válido e muito curta para análise."
-                return result
-
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError as e:
+    # Rule 1: resposta muito curta
+    if len(text) < 80:
         result["needs_escalation"] = True
-        result["reason"] = f"Resposta LLM não é JSON válido: {e}"
+        result["reason"] = f"Resposta muito curta ({len(text)} chars) — possivelmente incompleta."
         return result
 
-    result["parsed"] = parsed
+    # Rule 2: linguagem de prescrição direta
+    text_lower = text.lower()
+    for pattern in _PRESCRIPTION_PATTERNS:
+        if re.search(pattern, text_lower):
+            result["needs_escalation"] = True
+            result["reason"] = "Resposta contém linguagem de prescrição direta — não permitido."
+            return result
 
-    # --- Rule 1: prescription type ---
-    rec_type = parsed.get("recommendation_type", "analysis")
-    if rec_type == "prescription":
-        result["needs_escalation"] = True
-        result["reason"] = "Tipo 'prescription' não permitido — requer revisão médica."
-        return result
-
-    # --- Rule 2: confidence too low ---
-    confidence = parsed.get("confidence", 0.0)
-    if confidence < 0.4:
-        result["needs_escalation"] = True
-        result["reason"] = f"Confiança muito baixa ({confidence:.2f} < 0.40)."
-        return result
-
-    # --- Rule 3: empty sources — apenas aviso, não escalation
-    # O modelo fine-tuned não foi treinado para gerar fontes bibliográficas;
-    # sources vazio não implica resposta perigosa.
-    sources = parsed.get("sources", [])
-    if not sources:
-        sources = ["Análise baseada em fine-tuning clínico (sem referência explícita)"]
+    # Extrai seções da prosa
+    sections = _extract_sections(text)
+    result["sections"] = sections
 
     result["safety_passed"] = True
-    result["sources"] = sources
     return result
+
+
+def _extract_sections(text: str) -> dict:
+    """Extrai seções do formato Lucas do texto em prosa."""
+    section_headers = [
+        "Resumo clínico",
+        "Raciocínio clínico",
+        "Hipótese diagnóstica principal",
+        "Diagnósticos diferenciais",
+        "Exames recomendados",
+    ]
+
+    sections = {}
+    lines = text.split("\n")
+    current_section = None
+    current_content = []
+
+    for line in lines:
+        stripped = line.strip()
+        # Detecta cabeçalho de seção (com ou sem ":")
+        matched = None
+        for header in section_headers:
+            if stripped.lower().startswith(header.lower()):
+                matched = header
+                break
+
+        if matched:
+            # Salva seção anterior
+            if current_section:
+                sections[current_section] = "\n".join(current_content).strip()
+            current_section = matched
+            # Conteúdo inline (ex: "Hipótese diagnóstica principal: insuf. cardíaca")
+            after_colon = re.sub(rf"^{re.escape(matched)}\s*:?\s*", "", stripped, flags=re.IGNORECASE)
+            current_content = [after_colon] if after_colon else []
+        elif current_section:
+            current_content.append(line)
+
+    # Última seção
+    if current_section:
+        sections[current_section] = "\n".join(current_content).strip()
+
+    return sections
+
+
+def _extract_list_items(text: str) -> list[str]:
+    """Extrai itens de lista de um bloco de texto."""
+    items = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # Remove marcadores de lista: -, •, *, 1., 2., etc.
+        clean = re.sub(r"^[-•*\d]+[.)]\s*", "", line).strip()
+        # Se nenhum marcador foi removido, tenta remover traço simples
+        if clean == line:
+            clean = re.sub(r"^-\s+", "", line).strip()
+        if clean and len(clean) > 2:
+            items.append(clean)
+    return items
 
 
 def format_escalation_message(reason: str) -> str:

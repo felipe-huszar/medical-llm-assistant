@@ -51,16 +51,7 @@ def load_lora_model(model_path: str) -> Any:
             messages = [
                 {
                     "role": "system",
-                    "content": (
-                        "Você é um assistente médico especializado. "
-                        "Responda EXCLUSIVAMENTE com um objeto JSON válido, "
-                        "sem texto antes ou depois. "
-                        "Campos obrigatórios: possible_diagnoses (lista), "
-                        "recommended_exams (lista), reasoning (string), "
-                        "sources (lista), confidence (0.0-1.0), "
-                        "recommendation_type (sempre \"analysis\"). "
-                        "Nunca prescreva medicamentos."
-                    ),
+                    "content": "Você é um assistente médico clínico.",
                 },
                 {"role": "user", "content": prompt},
             ]

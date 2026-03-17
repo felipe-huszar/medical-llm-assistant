@@ -104,14 +104,20 @@ class TestE2ESafetyEscalation:
     def test_escalation_on_prescription_attempt(self, monkeypatch):
         """System escalates when LLM tries to prescribe medication."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["Hipertensão"],
-            "recommended_exams": ["Pressão arterial"],
-            "reasoning": "Paciente precisa de medicação.",
-            "sources": ["Protocolo"],
-            "confidence": 0.8,
-            "recommendation_type": "prescription",  # FORBIDDEN
-        })
+        mock_llm.invoke.return_value = """Resumo clínico:
+Paciente com hipertensão.
+
+Raciocínio clínico:
+Prescrevo enalapril 20mg/dia para o paciente.
+
+Hipótese diagnóstica principal:
+Hipertensão arterial
+
+Diagnósticos diferenciais:
+- Ansiedade
+
+Exames recomendados:
+- Pressão arterial"""
         
         result = run_consultation(
             cpf="E2E.SAFE.001-00",
@@ -125,16 +131,9 @@ class TestE2ESafetyEscalation:
         assert "⚠️" in result["final_answer"] or "revisão" in result["final_answer"].lower()
 
     def test_escalation_on_low_confidence(self, monkeypatch):
-        """System escalates when LLM confidence is too low."""
+        """System escalates when LLM response is too short."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["Indeterminado"],
-            "recommended_exams": ["Check-up geral"],
-            "reasoning": "Sintomas muito vagos.",
-            "sources": ["Protocolo"],
-            "confidence": 0.25,  # BELOW THRESHOLD
-            "recommendation_type": "analysis",
-        })
+        mock_llm.invoke.return_value = "ok"  # Muito curto → escalada
         
         result = run_consultation(
             cpf="E2E.SAFE.002-00",
@@ -144,19 +143,12 @@ class TestE2ESafetyEscalation:
         )
         
         assert result["needs_escalation"] is True
-        assert "confiança" in result["final_answer"].lower() or "0.25" in result["final_answer"]
+        assert "⚠️" in result["final_answer"] or "revisão" in result["final_answer"].lower()
 
     def test_escalation_on_missing_sources(self, monkeypatch):
-        """System escalates when LLM response lacks sources."""
+        """System escalates when LLM response is too short."""
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = json.dumps({
-            "possible_diagnoses": ["X"],
-            "recommended_exams": ["Y"],
-            "reasoning": "Z",
-            "sources": [],  # EMPTY
-            "confidence": 0.9,
-            "recommendation_type": "analysis",
-        })
+        mock_llm.invoke.return_value = "ok"  # Muito curto → escalada
         
         result = run_consultation(
             cpf="E2E.SAFE.003-00",
