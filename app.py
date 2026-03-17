@@ -131,18 +131,24 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
 # ---------------------------------------------------------------------------
 
 def run_consult(cpf: str, question: str, current_patient: dict | None):
+    if not cpf or not cpf.strip():
+        yield "", "⚠️ **CPF não informado.** Digite o CPF do paciente e clique em Carregar Paciente antes de consultar."
+        return
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
-        return "⚠️ CPF inválido", cpf_or_err
+        yield "", f"⚠️ {cpf_or_err}"
+        return
     cpf = cpf_or_err
 
     # Sempre busca direto no DB pelo CPF digitado
     profile = get_patient(cpf)
     if not profile:
-        return "❌ Paciente não encontrado", f"⚠️ CPF **{cpf}** não cadastrado. Registre o paciente primeiro."
+        yield "", f"❌ CPF **{cpf}** não encontrado. Registre o paciente na aba **👤 Paciente** primeiro."
+        return
 
     if not question.strip():
-        return _profile_text(profile), "⚠️ Informe uma pergunta clínica."
+        yield _profile_text(profile), "⚠️ Informe uma pergunta clínica."
+        return
 
     # Mostra loading imediatamente
     yield _profile_text(profile), "⏳ **Analisando caso clínico...** Isso pode levar 20-30 segundos."
@@ -162,14 +168,6 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
 # ---------------------------------------------------------------------------
 # Gradio UI
 # ---------------------------------------------------------------------------
-
-def _cpf_live(val: str) -> str:
-    """Remove não-dígitos e formata CPF em tempo real. Idempotente."""
-    d = re.sub(r"\D", "", val or "")[:11]
-    if len(d) > 9:   return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
-    elif len(d) > 6: return f"{d[:3]}.{d[3:6]}.{d[6:]}"
-    elif len(d) > 3: return f"{d[:3]}.{d[3:]}"
-    return d
 
 
 with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
@@ -196,9 +194,9 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
             with gr.Group(visible=False) as new_patient_form:
                 gr.Markdown("### Cadastrar Novo Paciente")
                 nome_input  = gr.Textbox(label="Nome completo")
-                idade_input = gr.Number(label="Idade", precision=0, minimum=0, maximum=150)
+                idade_input = gr.Number(label="Idade", precision=0, minimum=0, maximum=999)
                 sexo_input  = gr.Radio(["M", "F"], label="Sexo", value="M")
-                peso_input  = gr.Number(label="Peso (kg)", precision=1, minimum=0, maximum=500)
+                peso_input  = gr.Number(label="Peso (kg)", precision=1, minimum=0, maximum=999)
                 register_btn = gr.Button("✅ Registrar Paciente", variant="secondary")
 
         # ── Tab 2: Consulta ─────────────────────────────────────────────────
@@ -225,10 +223,6 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
             )
             consult_btn   = gr.Button("🔬 Consultar", variant="primary", size="lg")
             answer_output = gr.Markdown("")
-
-    # ── Máscara CPF: .input() com queue=False evita loop e latência ────────
-    cpf_input.input(fn=_cpf_live, inputs=[cpf_input], outputs=[cpf_input], queue=False)
-    consult_cpf.input(fn=_cpf_live, inputs=[consult_cpf], outputs=[consult_cpf], queue=False)
 
     # ── Botão Carregar Paciente (aba Consulta) ──────────────────────────────
     def load_patient_for_consult(cpf: str):
