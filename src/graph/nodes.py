@@ -93,34 +93,35 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
     idade = profile.get("idade", "N/A")
     peso  = profile.get("peso", "")
 
-    # Linha de perfil idêntica ao formato de treinamento
     peso_text = f", {peso} kg" if peso else ""
     profile_line = f"Paciente {sexo}, {idade} anos{peso_text}."
 
-    # Histórico: apenas as QUEIXAS anteriores (não as respostas do LLM)
-    # Mantém alinhamento com "Histórico: hipertensão, diabetes" do treinamento
-    if history:
+    # Prioridade 1: comorbidades registradas no perfil (condições crônicas permanentes)
+    # Alinhado com o treinamento: "Histórico: hipertensão, diabetes"
+    comorbidades = profile.get("comorbidades", [])
+    if isinstance(comorbidades, list):
+        comorbidades_text = ", ".join(comorbidades) if comorbidades else ""
+    else:
+        comorbidades_text = str(comorbidades).strip()
+
+    # Prioridade 2 (fallback): queixas anteriores do ChromaDB se não há comorbidades
+    if not comorbidades_text and history:
         queixas = []
-        import json as _json
         for entry in history:
-            # entry é "Pergunta: ...\nResposta: ..."
-            # Extrai apenas a pergunta
             for line in entry.split("\n"):
                 if line.startswith("Pergunta:"):
                     q = line.replace("Pergunta:", "").strip()
                     if q:
                         queixas.append(q)
                     break
-        historico_line = "; ".join(queixas) if queixas else ""
-    else:
-        historico_line = ""
+        comorbidades_text = "; ".join(queixas)
 
     # Monta contexto no formato exato do treinamento
-    if historico_line:
+    if comorbidades_text:
         context_block = (
             f"Contexto do paciente:\n"
             f"{profile_line}\n"
-            f"Histórico: {historico_line}"
+            f"Histórico: {comorbidades_text}"
         )
     else:
         context_block = f"Contexto do paciente:\n{profile_line}"
@@ -129,7 +130,7 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
 
     state["prompt"] = prompt
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
-              prompt_length=len(prompt), has_history=bool(historico_line))
+              prompt_length=len(prompt), has_history=bool(comorbidades_text))
     return state
 
 

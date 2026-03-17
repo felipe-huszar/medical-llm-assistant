@@ -10,7 +10,7 @@ import re
 import gradio as gr
 
 from src.llm.factory import get_llm
-from src.rag.patient_rag import get_patient, save_patient, patient_exists, seed_from_file
+from src.rag.patient_rag import get_patient, save_patient, patient_exists, seed_from_file, get_consultation_history
 from src.graph.pipeline import run_consultation
 
 # Seed DB on startup
@@ -66,14 +66,43 @@ def _valid_cpf(cpf: str) -> tuple[bool, str]:
 # State helpers
 # ---------------------------------------------------------------------------
 
+COMORBIDADES_OPCOES = [
+    "Hipertensão arterial",
+    "Diabetes tipo 2",
+    "Diabetes tipo 1",
+    "Insuficiência cardíaca",
+    "Doença coronariana",
+    "DPOC",
+    "Asma",
+    "Insuficiência renal crônica",
+    "Hipotireoidismo",
+    "Hipertireoidismo",
+    "Obesidade",
+    "Dislipidemia",
+    "Fibrilação atrial",
+    "AVC prévio",
+    "Neoplasia",
+    "HIV/AIDS",
+    "Hepatite crônica",
+    "Cirrose hepática",
+    "Lúpus eritematoso",
+    "Artrite reumatoide",
+]
+
+
 def _profile_text(profile: dict) -> str:
     if not profile:
         return "(nenhum paciente carregado)"
+    comorbidades = profile.get("comorbidades", [])
+    comorbidades_str = (
+        f"\n**Comorbidades:** {', '.join(comorbidades)}" if comorbidades else ""
+    )
     return (
         f"**Nome:** {profile.get('nome', 'N/A')}  "
         f"**Idade:** {profile.get('idade', 'N/A')} anos  "
         f"**Sexo:** {profile.get('sexo', 'N/A')}  "
         f"**Peso:** {profile.get('peso', 'N/A')} kg"
+        f"{comorbidades_str}"
     )
 
 
@@ -106,7 +135,8 @@ def lookup_patient(cpf: str):
         )
 
 
-def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
+def register_patient(cpf: str, nome: str, idade, sexo: str, peso,
+                     comorbidades_check: list, comorbidades_other: str):
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
         return cpf_or_err, None, "", "", "", gr.update(selected=0), ""
@@ -126,23 +156,31 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
     if not (0 < peso_val <= 500):
         return "❌ Peso deve ser entre 1 e 500 kg.", None, "", "", "", gr.update(selected=0), ""
 
+    # Combina checkboxes + campo livre (split por vírgula)
+    comorbidades = list(comorbidades_check or [])
+    for item in (comorbidades_other or "").split(","):
+        item = item.strip()
+        if item and item not in comorbidades:
+            comorbidades.append(item)
+
     profile = {
         "cpf": cpf,
         "nome": nome.strip(),
         "idade": idade_val,
         "sexo": sexo.strip().upper(),
         "peso": peso_val,
+        "comorbidades": comorbidades,
     }
 
     save_patient(cpf, profile)
     return (
         f"✅ Paciente **{nome}** cadastrado com sucesso.",
         profile,
-        cpf,                     # pre-preenche CPF na aba Consulta
-        _profile_text(profile),  # profile_display
-        "",                      # limpa pergunta anterior
-        gr.update(selected=1),   # navega para aba Consulta
-        "",                      # limpa answer_output
+        cpf,
+        _profile_text(profile),
+        "",
+        gr.update(selected=1),
+        "",
     )
 
 
@@ -215,10 +253,23 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
 
             with gr.Group(visible=False) as new_patient_form:
                 gr.Markdown("### Cadastrar Novo Paciente")
-                nome_input  = gr.Textbox(label="Nome completo")
-                idade_input = gr.Number(label="Idade (anos)", precision=0, minimum=0)
-                sexo_input  = gr.Radio(["M", "F"], label="Sexo", value="M")
-                peso_input  = gr.Number(label="Peso (kg)", precision=1, minimum=0)
+                with gr.Row():
+                    nome_input  = gr.Textbox(label="Nome completo", scale=3)
+                    sexo_input  = gr.Radio(["M", "F"], label="Sexo", value="M", scale=1)
+                with gr.Row():
+                    idade_input = gr.Number(label="Idade (anos)", precision=0, minimum=0, scale=1)
+                    peso_input  = gr.Number(label="Peso (kg)", precision=1, minimum=0, scale=1)
+                gr.Markdown("**Comorbidades** *(condições crônicas — ficam no histórico permanente do paciente)*")
+                comorbidades_check = gr.CheckboxGroup(
+                    choices=COMORBIDADES_OPCOES,
+                    label="",
+                    value=[],
+                )
+                comorbidades_other = gr.Textbox(
+                    label="Outras comorbidades (separadas por vírgula)",
+                    placeholder="Ex: epilepsia, doença de Crohn",
+                    max_lines=1,
+                )
                 register_btn = gr.Button("✅ Registrar Paciente", variant="secondary")
 
         # ── Tab 2: Consulta ─────────────────────────────────────────────────
@@ -238,6 +289,9 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
                 "ou registre na aba **👤 Paciente** primeiro."
             )
 
+            with gr.Accordion("📋 Histórico de consultas anteriores", open=False) as history_accordion:
+                history_display = gr.Markdown("*(carregue um paciente para ver o histórico)*")
+
             question_input = gr.Textbox(
                 label="Pergunta Clínica",
                 placeholder="Ex: Paciente com dores abdominais ao evacuar há 3 semanas. Quais diagnósticos considerar?",
@@ -247,25 +301,38 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
             answer_output = gr.Markdown("")
 
     # ── Botão Carregar Paciente (aba Consulta) ──────────────────────────────
+    def _format_history_md(cpf: str) -> str:
+        """Formata as últimas consultas do ChromaDB como Markdown para o accordion."""
+        entries = get_consultation_history(cpf, n_results=5)
+        if not entries:
+            return "*(sem consultas anteriores registradas)*"
+        lines = []
+        for i, entry in enumerate(reversed(entries), 1):
+            for line in entry.split("\n"):
+                if line.startswith("Pergunta:"):
+                    q = line.replace("Pergunta:", "").strip()
+                    lines.append(f"**Consulta {i}:** {q}")
+                    break
+        return "\n\n".join(lines) if lines else "*(sem consultas anteriores registradas)*"
+
     def load_patient_for_consult(cpf: str):
         ok, cpf_or_err = _valid_cpf(cpf)
         if not ok:
-            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, ""
+            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, "", ""
         profile = get_patient(cpf_or_err)
         if not profile:
             return (
                 f"❌ Paciente **{cpf_or_err}** não encontrado.\n\n"
                 "👉 Registre o paciente na aba **👤 Paciente** antes de consultar.",
-                cpf_or_err,
-                "",
+                cpf_or_err, "", "",
             )
-        # Paciente encontrado: limpa answer_output antigo
-        return _profile_text(profile), cpf_or_err, ""
+        history_md = _format_history_md(cpf_or_err)
+        return _profile_text(profile), cpf_or_err, history_md, ""
 
     load_patient_btn.click(
         fn=load_patient_for_consult,
         inputs=[consult_cpf],
-        outputs=[profile_display, consult_cpf, answer_output],
+        outputs=[profile_display, consult_cpf, history_display, answer_output],
     )
 
     # ── Consulta ────────────────────────────────────────────────────────────
@@ -285,7 +352,8 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
 
     register_btn.click(
         fn=register_patient,
-        inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
+        inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input,
+                comorbidades_check, comorbidades_other],
         outputs=[patient_status, current_patient, consult_cpf, profile_display, question_input, tabs, answer_output],
     )
 
