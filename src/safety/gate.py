@@ -111,17 +111,34 @@ def _extract_sections(text: str) -> dict:
 
 
 def _extract_list_items(text: str) -> list[str]:
-    """Extrai itens de lista de um bloco de texto."""
+    """Extrai itens de lista de um bloco de texto.
+
+    Suporta:
+    - Um item por linha com marcador (-, •, ·, *, 1., etc.)
+    - Múltiplos itens na mesma linha separados por · ou •
+      ex: "· ECG · troponina · ecocardiograma"
+    """
     items = []
     for line in text.split("\n"):
         line = line.strip()
         if not line:
             continue
-        # Remove marcadores de lista: -, •, *, 1., 2., etc.
-        clean = re.sub(r"^[-•*\d]+[.)]\s*", "", line).strip()
-        # Se nenhum marcador foi removido, tenta remover traço simples
+
+        # Detecta padrão inline: "· item1 · item2 · item3"
+        if re.search(r"[·•].*[·•]", line):
+            # Split por · ou • e limpa cada fragmento
+            parts = re.split(r"[·•]", line)
+            for part in parts:
+                part = part.strip()
+                if part and len(part) > 2:
+                    items.append(part)
+            continue
+
+        # Linha com marcador único no início (-, •, ·, *, 1., 2), etc.)
+        clean = re.sub(r"^[-·•*\d]+[.)]\s*", "", line).strip()
         if clean == line:
-            clean = re.sub(r"^-\s+", "", line).strip()
+            # Tenta remover bullet isolado seguido de espaço: "• item", "· item", "- item"
+            clean = re.sub(r"^[-·•\*]\s+", "", line).strip()
         if clean and len(clean) > 2:
             items.append(clean)
     return items
