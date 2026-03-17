@@ -51,7 +51,17 @@ def load_lora_model(model_path: str) -> Any:
             messages = [
                 {
                     "role": "system",
-                    "content": "Você é um assistente médico clínico.",
+                    "content": (
+                        "Você é um assistente médico clínico.\n\n"
+                        "Analise os sintomas considerando OBRIGATORIAMENTE o contexto do paciente "
+                        "(idade, sexo, histórico e comorbidades).\n\n"
+                        "Responda com:\n"
+                        "• Resumo clínico (incluindo contexto do paciente)\n"
+                        "• Raciocínio clínico (relacionando histórico e sintomas atuais)\n"
+                        "• Hipótese diagnóstica principal\n"
+                        "• Diagnósticos diferenciais\n"
+                        "• Exames recomendados"
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ]
