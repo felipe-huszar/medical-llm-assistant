@@ -231,38 +231,16 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".grad
                 show_progress="full",
             )
 
-    # ── CPF Mask (injeta script direto no DOM) ──────────────────────────────
-    gr.HTML("""<script>
-(function() {
-    function setupMask(el) {
-        if (!el || el._cpfMask) return;
-        el._cpfMask = true;
-        el.addEventListener('keydown', function(e) {
-            var allowed = ['Backspace','Delete','Tab','ArrowLeft','ArrowRight','Home','End'];
-            if (allowed.indexOf(e.key) === -1 && !/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
-                e.preventDefault();
-            }
-        });
-        el.addEventListener('input', function(e) {
-            var v = e.target.value.replace(/\D/g,'').slice(0,11);
-            if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/,'$1.$2.$3-$4');
-            else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{1,3})/,'$1.$2.$3');
-            else if (v.length > 3) v = v.replace(/(\d{3})(\d{1,3})/,'$1.$2');
-            if (e.target.value !== v) e.target.value = v;
-        });
-    }
-    function applyAll() {
-        document.querySelectorAll('#cpf_input input, #consult_cpf input').forEach(setupMask);
-    }
-    // Aplica agora e quando o DOM mudar
-    var mo = new MutationObserver(applyAll);
-    mo.observe(document.body, {childList:true, subtree:true});
-    applyAll();
-    // Reaplica após 1s e 3s para garantir que Gradio terminou de renderizar
-    setTimeout(applyAll, 1000);
-    setTimeout(applyAll, 3000);
-})();
-</script>""")
+    # ── CPF: remove não-dígitos via evento .change() ────────────────────────
+    def _cpf_live(val: str) -> str:
+        d = re.sub(r"\D", "", val or "")[:11]
+        if len(d) > 9:   return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}"
+        elif len(d) > 6: return f"{d[:3]}.{d[3:6]}.{d[6:]}"
+        elif len(d) > 3: return f"{d[:3]}.{d[3:]}"
+        return d
+
+    cpf_input.change(fn=_cpf_live, inputs=[cpf_input], outputs=[cpf_input])
+    consult_cpf.change(fn=_cpf_live, inputs=[consult_cpf], outputs=[consult_cpf])
 
     # ── Eventos Tab 1 ───────────────────────────────────────────────────────
     lookup_btn.click(
