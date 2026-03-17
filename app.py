@@ -76,7 +76,6 @@ COMORBIDADES_OPCOES = [
     "Asma",
     "Insuficiência renal crônica",
     "Hipotireoidismo",
-    "Hipertireoidismo",
     "Obesidade",
     "Dislipidemia",
     "Fibrilação atrial",
@@ -185,31 +184,49 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso,
 
 
 # ---------------------------------------------------------------------------
+# Helpers compartilhados
+# ---------------------------------------------------------------------------
+
+def _format_history_md(cpf: str) -> str:
+    """Formata as últimas consultas do ChromaDB como Markdown para o accordion."""
+    entries = get_consultation_history(cpf, n_results=5)
+    if not entries:
+        return "*(sem consultas anteriores registradas)*"
+    lines = []
+    for i, entry in enumerate(reversed(entries), 1):
+        for line in entry.split("\n"):
+            if line.startswith("Pergunta:"):
+                q = line.replace("Pergunta:", "").strip()
+                lines.append(f"**Consulta {i}:** {q}")
+                break
+    return "\n\n".join(lines) if lines else "*(sem consultas anteriores registradas)*"
+
+
+# ---------------------------------------------------------------------------
 # Tab 2: Consulta
 # ---------------------------------------------------------------------------
 
 def run_consult(cpf: str, question: str, current_patient: dict | None):
     if not cpf or not cpf.strip():
-        yield "", "⚠️ **CPF não informado.** Digite o CPF do paciente e clique em Carregar Paciente antes de consultar."
+        yield "", "⚠️ **CPF não informado.** Digite o CPF do paciente e clique em Carregar Paciente antes de consultar.", ""
         return
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
-        yield "", f"⚠️ {cpf_or_err}"
+        yield "", f"⚠️ {cpf_or_err}", ""
         return
     cpf = cpf_or_err
 
-    # Sempre busca direto no DB pelo CPF digitado
     profile = get_patient(cpf)
     if not profile:
-        yield "", f"❌ CPF **{cpf}** não encontrado. Registre o paciente na aba **👤 Paciente** primeiro."
+        yield "", f"❌ CPF **{cpf}** não encontrado. Registre o paciente na aba **👤 Paciente** primeiro.", ""
         return
 
     if not question.strip():
-        yield _profile_text(profile), "⚠️ Informe uma pergunta clínica."
+        yield _profile_text(profile), "⚠️ Informe uma pergunta clínica.", ""
         return
 
     # Mostra loading imediatamente
-    yield _profile_text(profile), "⏳ **Analisando caso clínico...** Isso pode levar 20-30 segundos."
+    yield _profile_text(profile), "⏳ **Analisando caso clínico...** Isso pode levar 20-30 segundos.", ""
 
     try:
         result = run_consultation(
@@ -218,9 +235,15 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
             llm=_get_llm(),
             patient_profile=profile,
         )
-        yield _profile_text(result.get("patient_profile", profile)), result.get("final_answer", "Sem resposta.")
+        # Atualiza histórico no accordion após a consulta ser salva
+        history_md = _format_history_md(cpf)
+        yield (
+            _profile_text(result.get("patient_profile", profile)),
+            result.get("final_answer", "Sem resposta."),
+            history_md,
+        )
     except Exception as e:
-        yield "", f"❌ Erro durante a consulta: {e}"
+        yield "", f"❌ Erro durante a consulta: {e}", ""
 
 
 # ---------------------------------------------------------------------------
@@ -301,20 +324,6 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
             answer_output = gr.Markdown("")
 
     # ── Botão Carregar Paciente (aba Consulta) ──────────────────────────────
-    def _format_history_md(cpf: str) -> str:
-        """Formata as últimas consultas do ChromaDB como Markdown para o accordion."""
-        entries = get_consultation_history(cpf, n_results=5)
-        if not entries:
-            return "*(sem consultas anteriores registradas)*"
-        lines = []
-        for i, entry in enumerate(reversed(entries), 1):
-            for line in entry.split("\n"):
-                if line.startswith("Pergunta:"):
-                    q = line.replace("Pergunta:", "").strip()
-                    lines.append(f"**Consulta {i}:** {q}")
-                    break
-        return "\n\n".join(lines) if lines else "*(sem consultas anteriores registradas)*"
-
     def load_patient_for_consult(cpf: str):
         ok, cpf_or_err = _valid_cpf(cpf)
         if not ok:
@@ -339,7 +348,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
     consult_btn.click(
         fn=run_consult,
         inputs=[consult_cpf, question_input, current_patient],
-        outputs=[profile_display, answer_output],
+        outputs=[profile_display, answer_output, history_display],
         show_progress="full",
     )
 
