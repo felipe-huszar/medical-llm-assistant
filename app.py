@@ -193,7 +193,9 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
 with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
 .gradio-container { max-width: 1200px !important; margin: 0 auto; }
 .tabitem { padding: 20px !important; }
-.generating { margin-top: 16px !important; }
+.generating { margin-top: 24px !important; }
+.progress-bar-wrap { margin-top: 20px !important; margin-bottom: 8px !important; }
+.eta-bar { margin-top: 20px !important; }
 """) as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
