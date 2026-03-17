@@ -163,7 +163,36 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
 # Gradio UI
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".gradio-container {max-width: 1200px !important; margin: 0 auto;} .tabitem {padding: 20px !important;}") as demo:
+_CPF_MASK_JS = """
+function cpfMask() {
+    function setupMask(el) {
+        if (!el || el._cpfMaskApplied) return;
+        el._cpfMaskApplied = true;
+        el.addEventListener('keypress', function(e) {
+            // Bloqueia tudo que não seja dígito, backspace, delete, tab, arrows
+            if (!/[0-9]/.test(e.key) && !['Backspace','Delete','Tab','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        el.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\\D/g, '').slice(0, 11);
+            if (v.length > 9)      v = v.replace(/(\\d{3})(\\d{3})(\\d{3})(\\d{1,2})/, '$1.$2.$3-$4');
+            else if (v.length > 6) v = v.replace(/(\\d{3})(\\d{3})(\\d{1,3})/, '$1.$2.$3');
+            else if (v.length > 3) v = v.replace(/(\\d{3})(\\d{1,3})/, '$1.$2');
+            e.target.value = v;
+        });
+    }
+    function applyToAll() {
+        document.querySelectorAll('#cpf_input input, #consult_cpf input').forEach(setupMask);
+    }
+    applyToAll();
+    // Reaplica quando a UI muda (Gradio renderiza async)
+    const obs = new MutationObserver(applyToAll);
+    obs.observe(document.body, { childList: true, subtree: true });
+}
+"""
+
+with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), js=_CPF_MASK_JS, css=".gradio-container {max-width: 1200px !important; margin: 0 auto;} .tabitem {padding: 20px !important;}") as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
     current_patient = gr.State(None)
@@ -245,38 +274,4 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".grad
     )
 
 if __name__ == "__main__":
-    # JS para máscara de CPF (só permite dígitos, formata automaticamente)
-    cpf_mask_js = """
-    <script>
-    function setupCpfMask(elementId) {
-        const el = document.querySelector('#' + elementId + ' input');
-        if (!el) return;
-        el.addEventListener('input', function(e) {
-            let v = e.target.value.replace(/\D/g, '');
-            if (v.length > 11) v = v.slice(0, 11);
-            if (v.length > 9) {
-                v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
-            } else if (v.length > 6) {
-                v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
-            } else if (v.length > 3) {
-                v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
-            }
-            e.target.value = v;
-        });
-    }
-    // Aguarda elementos carregarem
-    setTimeout(() => {
-        setupCpfMask('cpf_input');
-        setupCpfMask('consult_cpf');
-    }, 500);
-    // Reaplica quando abas mudam
-    document.addEventListener('click', () => {
-        setTimeout(() => {
-            setupCpfMask('cpf_input');
-            setupCpfMask('consult_cpf');
-        }, 100);
-    });
-    </script>
-    """
-    demo.launch(share=False, inbrowser=False)
-    print(cpf_mask_js)  # Injetado no HTML
+    demo.launch(share=False)
