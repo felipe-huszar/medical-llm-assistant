@@ -29,9 +29,12 @@ def _get_llm():
 
 
 def set_llm(model):
-    """Injeta um LLM já carregado (use no notebook para evitar recarga)."""
+    """Injeta LLM já carregado — atualiza tanto o cache local quanto o da factory."""
     global _llm
     _llm = model
+    # Propaga para o cache da factory para evitar duplo carregamento
+    import src.llm.factory as _factory
+    _factory._cached_llm = model
 
 
 # ---------------------------------------------------------------------------
@@ -245,20 +248,22 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
     def load_patient_for_consult(cpf: str):
         ok, cpf_or_err = _valid_cpf(cpf)
         if not ok:
-            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err
+            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, ""
         profile = get_patient(cpf_or_err)
         if not profile:
             return (
                 f"❌ Paciente **{cpf_or_err}** não encontrado.\n\n"
                 "👉 Registre o paciente na aba **👤 Paciente** antes de consultar.",
                 cpf_or_err,
+                "",
             )
-        return _profile_text(profile), cpf_or_err
+        # Paciente encontrado: limpa answer_output antigo
+        return _profile_text(profile), cpf_or_err, ""
 
     load_patient_btn.click(
         fn=load_patient_for_consult,
         inputs=[consult_cpf],
-        outputs=[profile_display, consult_cpf],
+        outputs=[profile_display, consult_cpf, answer_output],
     )
 
     # ── Consulta ────────────────────────────────────────────────────────────
