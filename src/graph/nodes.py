@@ -70,39 +70,66 @@ def retrieve_history(state: ClinicalState) -> ClinicalState:
 # ---------------------------------------------------------------------------
 
 def build_prompt(state: ClinicalState) -> ClinicalState:
-    """Assemble structured clinical prompt from profile + history + question."""
+    """Assemble structured clinical prompt from profile + history + question.
+
+    Alinhado com o formato de treinamento do Lucas (dataset sintético):
+
+        Contexto do paciente:
+        Paciente <sexo>, <idade> anos.
+        Histórico: <comorbidades ou queixas anteriores resumidas>
+
+        Sintomas relatados:
+        <queixa atual>
+
+    O campo "Histórico" no treinamento continha comorbidades (ex: "hipertensão, diabetes"),
+    NÃO respostas completas de consultas anteriores. Por isso injetamos apenas as
+    queixas passadas (1 linha cada), não as respostas do LLM.
+    """
     profile = state.get("patient_profile", {})
     history = state.get("consultation_history", [])
     question = state.get("doctor_question", "")
 
-    profile_text = (
-        f"Paciente {profile.get('sexo', 'N/A')}, {profile.get('idade', 'N/A')} anos, "
-        f"{profile.get('peso', 'N/A')} kg."
-    ) if profile else "Paciente sem perfil cadastrado."
+    sexo  = profile.get("sexo", "N/A")
+    idade = profile.get("idade", "N/A")
+    peso  = profile.get("peso", "")
 
+    # Linha de perfil idêntica ao formato de treinamento
+    peso_text = f", {peso} kg" if peso else ""
+    profile_line = f"Paciente {sexo}, {idade} anos{peso_text}."
+
+    # Histórico: apenas as QUEIXAS anteriores (não as respostas do LLM)
+    # Mantém alinhamento com "Histórico: hipertensão, diabetes" do treinamento
     if history:
-        history_items = []
-        for i, h in enumerate(history, 1):
-            history_items.append(f"[Consulta {i}]\n{h}")
-        history_text = (
-            "ATENÇÃO: As consultas abaixo são do histórico ANTERIOR. "
-            "A queixa atual (abaixo) deve receber prioridade na análise.\n\n"
-            + "\n---\n".join(history_items)
+        queixas = []
+        import json as _json
+        for entry in history:
+            # entry é "Pergunta: ...\nResposta: ..."
+            # Extrai apenas a pergunta
+            for line in entry.split("\n"):
+                if line.startswith("Pergunta:"):
+                    q = line.replace("Pergunta:", "").strip()
+                    if q:
+                        queixas.append(q)
+                    break
+        historico_line = "; ".join(queixas) if queixas else ""
+    else:
+        historico_line = ""
+
+    # Monta contexto no formato exato do treinamento
+    if historico_line:
+        context_block = (
+            f"Contexto do paciente:\n"
+            f"{profile_line}\n"
+            f"Histórico: {historico_line}"
         )
     else:
-        history_text = "Sem histórico de consultas anteriores."
+        context_block = f"Contexto do paciente:\n{profile_line}"
 
-    # Formato alinhado com o treinamento do modelo (Lucas format)
-    # system + user via apply_chat_template no model_loader
-    prompt = (
-        f"Contexto do paciente:\n{profile_text}\n\n"
-        f"Histórico de consultas anteriores:\n{history_text}\n\n"
-        f"QUEIXA ATUAL (prioridade máxima):\n{question}"
-    )
+    prompt = f"{context_block}\n\nSintomas relatados:\n{question}"
 
     state["prompt"] = prompt
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
-              prompt_length=len(prompt), has_history=bool(history))
+              prompt_length=len(prompt), has_history=bool(historico_line))
     return state
 
 
