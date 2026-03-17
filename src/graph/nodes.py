@@ -114,9 +114,10 @@ def llm_reasoning(state: ClinicalState, llm: Any = None) -> ClinicalState:
     prompt = state.get("prompt", "")
     raw = llm.invoke(prompt)
     state["raw_response"] = raw
-    # Loga primeiros 300 chars do raw para debug
+    # Loga prompt enviado e primeiros 300 chars da resposta
     audit_log("node_executed", cpf=state["cpf"], node="llm_reasoning",
               response_length=len(raw), llm_type=type(llm).__name__,
+              prompt_sent=prompt[:500],  # LOG DO PROMPT ENVIADO
               raw_preview=raw[:300] if raw else "")
     return state
 
@@ -180,7 +181,7 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
         parts.append(f"### 📋 Resumo Clínico\n{resumo}\n")
 
     if hipotese:
-        parts.append(f"### 🎯 Hipótese Diagnóstica Principal\n**{hipotese}**\n")
+        parts.append(f"### 🎯 Hipótese Diagnóstica Principal\n{hipotese}\n")
 
     if diferenciais:
         parts.append(f"### 🔍 Diagnósticos Diferenciais\n{_bullet_list(diferenciais)}\n")

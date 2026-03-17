@@ -144,6 +144,9 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
     if not question.strip():
         return _profile_text(profile), "⚠️ Informe uma pergunta clínica."
 
+    # Mostra loading imediatamente
+    yield _profile_text(profile), "⏳ **Analisando caso clínico...** Isso pode levar 20-30 segundos."
+
     try:
         result = run_consultation(
             cpf=cpf,
@@ -151,9 +154,9 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
             llm=_get_llm(),
             patient_profile=profile,
         )
-        return _profile_text(result.get("patient_profile", profile)), result.get("final_answer", "Sem resposta.")
+        yield _profile_text(result.get("patient_profile", profile)), result.get("final_answer", "Sem resposta.")
     except Exception as e:
-        return "", f"❌ Erro durante a consulta: {e}"
+        yield "", f"❌ Erro durante a consulta: {e}"
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +172,11 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".grad
 
         # ── Tab 1: Paciente ─────────────────────────────────────────────────
         with gr.Tab("👤 Paciente", id=0):
-            cpf_input = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
+            cpf_input = gr.Textbox(
+                label="CPF do Paciente",
+                placeholder="12345678900 ou 123.456.789-00",
+                elem_id="cpf_input"
+            )
             lookup_btn = gr.Button("Buscar Paciente", variant="primary")
 
             with gr.Group(visible=False) as new_patient_form:
@@ -185,7 +192,11 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".grad
         # ── Tab 2: Consulta ─────────────────────────────────────────────────
         with gr.Tab("🩺 Consulta", id=1):
             gr.Markdown("### Realizar Consulta Clínica")
-            consult_cpf = gr.Textbox(label="CPF do Paciente", placeholder="12345678900 ou 123.456.789-00")
+            consult_cpf = gr.Textbox(
+                label="CPF do Paciente",
+                placeholder="12345678900 ou 123.456.789-00",
+                elem_id="consult_cpf"
+            )
             profile_display = gr.Markdown("(aguardando CPF)")
             gr.Markdown("💡 *Dica: Clique em **Consultar** para carregar o perfil do paciente.*")
             
@@ -234,4 +245,38 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css=".grad
     )
 
 if __name__ == "__main__":
-    demo.launch(share=False)
+    # JS para máscara de CPF (só permite dígitos, formata automaticamente)
+    cpf_mask_js = """
+    <script>
+    function setupCpfMask(elementId) {
+        const el = document.querySelector('#' + elementId + ' input');
+        if (!el) return;
+        el.addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 11) v = v.slice(0, 11);
+            if (v.length > 9) {
+                v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
+            } else if (v.length > 6) {
+                v = v.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
+            } else if (v.length > 3) {
+                v = v.replace(/(\d{3})(\d{1,3})/, '$1.$2');
+            }
+            e.target.value = v;
+        });
+    }
+    // Aguarda elementos carregarem
+    setTimeout(() => {
+        setupCpfMask('cpf_input');
+        setupCpfMask('consult_cpf');
+    }, 500);
+    // Reaplica quando abas mudam
+    document.addEventListener('click', () => {
+        setTimeout(() => {
+            setupCpfMask('cpf_input');
+            setupCpfMask('consult_cpf');
+        }, 100);
+    });
+    </script>
+    """
+    demo.launch(share=False, inbrowser=False)
+    print(cpf_mask_js)  # Injetado no HTML
