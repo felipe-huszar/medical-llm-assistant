@@ -17,6 +17,7 @@ from src.graph.pipeline import run_consultation
 seed_from_file("data/patients_seed.json")
 
 # LLM instanciado na primeira requisição (lê USE_MOCK_LLM do ambiente no momento do uso)
+# Para injetar o modelo já carregado do notebook: app._llm = seu_modelo
 _llm = None
 
 
@@ -25,6 +26,12 @@ def _get_llm():
     if _llm is None:
         _llm = get_llm()
     return _llm
+
+
+def set_llm(model):
+    """Injeta um LLM já carregado (use no notebook para evitar recarga)."""
+    global _llm
+    _llm = model
 
 
 # ---------------------------------------------------------------------------
@@ -99,30 +106,40 @@ def lookup_patient(cpf: str):
 def register_patient(cpf: str, nome: str, idade, sexo: str, peso):
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
-        return cpf_or_err, None, gr.update(selected=0), "", "", ""
+        return cpf_or_err, None, "", "", "", gr.update(selected=0), ""
     cpf = cpf_or_err
 
     if not nome.strip():
-        return "❌ Nome é obrigatório.", None, gr.update(selected=0), "", "", ""
+        return "❌ Nome é obrigatório.", None, "", "", "", gr.update(selected=0), ""
+
     try:
-        profile = {
-            "cpf": cpf,
-            "nome": nome.strip(),
-            "idade": int(idade or 0),
-            "sexo": sexo.strip().upper(),
-            "peso": float(peso or 0),
-        }
-    except ValueError as e:
-        return f"❌ Dados inválidos: {e}", None, gr.update(selected=0), "", "", ""
+        idade_val = int(idade or 0)
+        peso_val  = float(peso or 0)
+    except (ValueError, TypeError) as e:
+        return f"❌ Dados inválidos: {e}", None, "", "", "", gr.update(selected=0), ""
+
+    if not (0 < idade_val <= 150):
+        return "❌ Idade deve ser entre 1 e 150.", None, "", "", "", gr.update(selected=0), ""
+    if not (0 < peso_val <= 500):
+        return "❌ Peso deve ser entre 1 e 500 kg.", None, "", "", "", gr.update(selected=0), ""
+
+    profile = {
+        "cpf": cpf,
+        "nome": nome.strip(),
+        "idade": idade_val,
+        "sexo": sexo.strip().upper(),
+        "peso": peso_val,
+    }
 
     save_patient(cpf, profile)
     return (
         f"✅ Paciente **{nome}** cadastrado com sucesso.",
         profile,
-        cpf,                     # pre-preenche o CPF na aba de consulta
-        _profile_text(profile),  # atualiza profile_display imediatamente
+        cpf,                     # pre-preenche CPF na aba Consulta
+        _profile_text(profile),  # profile_display
         "",                      # limpa pergunta anterior
-        gr.update(selected=1),   # navega para aba de consulta (por último)
+        gr.update(selected=1),   # navega para aba Consulta
+        "",                      # limpa answer_output
     )
 
 
@@ -173,7 +190,7 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
 with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
 .gradio-container { max-width: 1200px !important; margin: 0 auto; }
 .tabitem { padding: 20px !important; }
-.loading-msg { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; font-size: 1rem; }
+.generating { margin-top: 16px !important; }
 """) as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
@@ -194,9 +211,9 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
             with gr.Group(visible=False) as new_patient_form:
                 gr.Markdown("### Cadastrar Novo Paciente")
                 nome_input  = gr.Textbox(label="Nome completo")
-                idade_input = gr.Number(label="Idade", precision=0, minimum=0, maximum=999)
+                idade_input = gr.Number(label="Idade (anos)", precision=0, minimum=0)
                 sexo_input  = gr.Radio(["M", "F"], label="Sexo", value="M")
-                peso_input  = gr.Number(label="Peso (kg)", precision=1, minimum=0, maximum=999)
+                peso_input  = gr.Number(label="Peso (kg)", precision=1, minimum=0)
                 register_btn = gr.Button("✅ Registrar Paciente", variant="secondary")
 
         # ── Tab 2: Consulta ─────────────────────────────────────────────────
@@ -262,7 +279,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
     register_btn.click(
         fn=register_patient,
         inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input],
-        outputs=[patient_status, current_patient, consult_cpf, profile_display, question_input, tabs],
+        outputs=[patient_status, current_patient, consult_cpf, profile_display, question_input, tabs, answer_output],
     )
 
 if __name__ == "__main__":

@@ -80,18 +80,24 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
         f"{profile.get('peso', 'N/A')} kg."
     ) if profile else "Paciente sem perfil cadastrado."
 
-    history_text = (
-        "\n---\n".join(history)
-        if history
-        else "Sem histórico de consultas anteriores."
-    )
+    if history:
+        history_items = []
+        for i, h in enumerate(history, 1):
+            history_items.append(f"[Consulta {i}]\n{h}")
+        history_text = (
+            "ATENÇÃO: As consultas abaixo são do histórico ANTERIOR. "
+            "A queixa atual (abaixo) deve receber prioridade na análise.\n\n"
+            + "\n---\n".join(history_items)
+        )
+    else:
+        history_text = "Sem histórico de consultas anteriores."
 
     # Formato alinhado com o treinamento do modelo (Lucas format)
     # system + user via apply_chat_template no model_loader
     prompt = (
         f"Contexto do paciente:\n{profile_text}\n\n"
         f"Histórico de consultas anteriores:\n{history_text}\n\n"
-        f"Sintomas relatados:\n{question}"
+        f"QUEIXA ATUAL (prioridade máxima):\n{question}"
     )
 
     state["prompt"] = prompt
