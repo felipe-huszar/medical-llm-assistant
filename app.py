@@ -392,7 +392,7 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
         fn=load_patient_for_consult,
         inputs=[consult_cpf],
         outputs=[profile_display, consult_cpf, history_display, answer_output, 
-                 history_dropdown, use_history_btn, history_dropdown],
+                 history_dropdown, use_history_btn],
     )
 
     use_history_btn.click(
