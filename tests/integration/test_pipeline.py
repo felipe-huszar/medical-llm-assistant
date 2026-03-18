@@ -140,3 +140,31 @@ class TestPipelineSafetyIntegration:
         assert result["needs_escalation"] is False
         assert result["safety_passed"] is True
         assert "##" in result["final_answer"]  # Normal formatted answer
+
+    def test_hallucinated_history_is_blocked_when_context_has_none(self):
+        """Guardrail blocks invented history/comorbidities absent from prompt context."""
+        mock_llm = MagicMock()
+        mock_llm.invoke.return_value = """Resumo clínico:
+Paciente apresentando dor abdominal, com histórico de cirrose hepática e obesidade.
+
+Raciocínio clínico:
+Paciente com histórico de cirrose hepática e obesidade, o que representa fator de risco.
+
+Hipótese diagnóstica principal:
+apendicite aguda
+
+Diagnósticos diferenciais:
+- gastroenterite aguda
+
+Exames recomendados:
+- hemograma"""
+
+        result = run_consultation(
+            cpf="SAFE.TEST.002-00",
+            doctor_question="Dor abdominal?",
+            patient_profile={"nome": "Safe", "idade": 35, "sexo": "F", "peso": 65},
+            llm=mock_llm,
+        )
+        assert result["needs_escalation"] is True
+        assert result["safety_passed"] is False
+        assert "histórico/comorbidades" in result["final_answer"].lower() or "revisão" in result["final_answer"].lower()

@@ -19,3 +19,4 @@ class ClinicalState(TypedDict, total=False):
     sources: list[str]
     final_answer: str
     needs_escalation: bool
+    has_explicit_history: bool

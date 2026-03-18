@@ -116,19 +116,29 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
                     break
         comorbidades_text = "; ".join(queixas)
 
-    # Monta contexto no formato exato do treinamento
+    # Monta contexto no formato exato do treinamento, mas explicitando ausência de histórico
     if comorbidades_text:
-        context_block = (
-            f"Contexto do paciente:\n"
-            f"{profile_line}\n"
-            f"Histórico: {comorbidades_text}"
-        )
+        history_line = f"Histórico: {comorbidades_text}"
     else:
-        context_block = f"Contexto do paciente:\n{profile_line}"
+        history_line = "Histórico: não informado. Comorbidades registradas: nenhuma."
 
-    prompt = f"{context_block}\n\nSintomas relatados:\n{question}"
+    guardrail_block = (
+        "Regras críticas:\n"
+        "- Use apenas informações explicitamente fornecidas.\n"
+        "- Não invente histórico, comorbidades ou fatores de risco prévios.\n"
+        "- Se não houver histórico, escreva literalmente: 'Histórico relevante não informado'."
+    )
+
+    context_block = (
+        f"Contexto do paciente:\n"
+        f"{profile_line}\n"
+        f"{history_line}"
+    )
+
+    prompt = f"{context_block}\n\n{guardrail_block}\n\nSintomas relatados:\n{question}"
 
     state["prompt"] = prompt
+    state["has_explicit_history"] = bool(comorbidades_text)
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
               prompt_length=len(prompt), has_history=bool(comorbidades_text))
     return state
@@ -169,6 +179,32 @@ def safety_gate(state: ClinicalState) -> ClinicalState:
     state["needs_escalation"] = validation["needs_escalation"]
     state["sources"] = []
     state["parsed_response"] = validation.get("sections", {})
+
+    # Guardrail adicional: se não houve histórico/comorbidades no contexto,
+    # o modelo não pode afirmar histórico específico na resposta.
+    has_explicit_history = state.get("has_explicit_history", False)
+    if not validation["needs_escalation"] and not has_explicit_history:
+        sections = validation.get("sections", {})
+        summary_and_reasoning = "\n".join([
+            sections.get("Resumo clínico", ""),
+            sections.get("Raciocínio clínico", ""),
+        ]).lower()
+
+        suspicious_markers = [
+            "com histórico de",
+            "histórico de ",
+            "histórico relevante:",
+            "paciente com histórico",
+        ]
+
+        if any(marker in summary_and_reasoning for marker in suspicious_markers):
+            validation["needs_escalation"] = True
+            validation["safety_passed"] = False
+            validation["reason"] = (
+                "Resposta inferiu histórico/comorbidades não fornecidos no contexto do paciente."
+            )
+            state["safety_passed"] = False
+            state["needs_escalation"] = True
 
     if validation["needs_escalation"]:
         state["final_answer"] = format_escalation_message(validation["reason"])

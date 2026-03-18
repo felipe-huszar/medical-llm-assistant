@@ -62,11 +62,15 @@ def load_lora_model(model_path: str) -> Any:
                     "role": "system",
                     "content": (
                         "Você é um assistente médico clínico.\n\n"
-                        "Analise os sintomas considerando OBRIGATORIAMENTE o contexto do paciente "
-                        "(idade, sexo, histórico e comorbidades).\n\n"
+                        "Use somente as informações explicitamente fornecidas no contexto do paciente. "
+                        "Nunca invente histórico, comorbidades, exames prévios ou fatores de risco não informados.\n\n"
+                        "Se o histórico não estiver presente no contexto, escreva explicitamente: "
+                        "'Histórico relevante não informado'.\n"
+                        "Diferencie fatos informados de hipóteses clínicas. "
+                        "Não transforme inferências em histórico confirmado.\n\n"
                         "Responda com:\n"
-                        "• Resumo clínico (incluindo contexto do paciente)\n"
-                        "• Raciocínio clínico (relacionando histórico e sintomas atuais)\n"
+                        "• Resumo clínico\n"
+                        "• Raciocínio clínico\n"
                         "• Hipótese diagnóstica principal\n"
                         "• Diagnósticos diferenciais\n"
                         "• Exames recomendados"
@@ -98,8 +102,8 @@ def load_lora_model(model_path: str) -> Any:
                 outputs = model.generate(
                     **inputs,
                     max_new_tokens=512,
-                    temperature=0.1,
-                    do_sample=True,
+                    temperature=0.0,
+                    do_sample=False,
                     repetition_penalty=1.15,
                     eos_token_id=stop_token_ids,
                     pad_token_id=tokenizer.eos_token_id,

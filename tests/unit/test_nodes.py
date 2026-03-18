@@ -122,6 +122,16 @@ class TestBuildPromptNode:
         result = build_prompt(state)
         assert "dor X" in result["prompt"]
 
+    def test_prompt_explicitly_marks_missing_history(self):
+        """REQ-NODE-4: missing history is explicitly declared in prompt."""
+        state = _base_state(
+            patient_profile={"nome": "Maria", "idade": 35, "sexo": "F", "peso": 62},
+            consultation_history=[],
+        )
+        result = build_prompt(state)
+        assert "Histórico: não informado" in result["prompt"]
+        assert result["has_explicit_history"] is False
+
     def test_prompt_instructs_no_prescription(self):
         """REQ-NODE-4: prompt contains clinical context (system message handles safety)."""
         state = _base_state()
@@ -192,6 +202,28 @@ Exames recomendados:
         result = safety_gate(state)
         assert result["needs_escalation"] is True
         assert result["safety_passed"] is False
+
+    def test_hallucinated_history_fails_gate_when_no_history_in_context(self):
+        """REQ-NODE-6: invented comorbidities are blocked if prompt had no explicit history."""
+        raw = """Resumo clínico:
+Paciente com dor abdominal e com histórico de cirrose hepática, hipotireoidismo e obesidade.
+
+Raciocínio clínico:
+Paciente com histórico de cirrose hepática, hipotireoidismo e obesidade.
+
+Hipótese diagnóstica principal:
+apendicite aguda
+
+Diagnósticos diferenciais:
+- gastroenterite aguda
+
+Exames recomendados:
+- hemograma"""
+        state = _base_state(raw_response=raw, has_explicit_history=False)
+        result = safety_gate(state)
+        assert result["needs_escalation"] is True
+        assert result["safety_passed"] is False
+        assert "histórico/comorbidades" in result["final_answer"].lower() or "revisão" in result["final_answer"].lower()
 
     def test_escalation_sets_final_answer(self):
         """REQ-NODE-6: on escalation, final_answer is set to escalation message."""
