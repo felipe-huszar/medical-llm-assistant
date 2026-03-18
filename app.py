@@ -188,20 +188,34 @@ def register_patient(cpf: str, nome: str, idade, sexo: str, peso,
 # ---------------------------------------------------------------------------
 
 def _get_history_questions(cpf: str) -> list:
-    """Retorna lista de tuplas (pergunta, resumo) para o dropdown de histórico."""
+    """Retorna lista de tuplas (display, pergunta_completa) para o dropdown de histórico."""
     entries = get_consultation_history(cpf, n_results=5)
     if not entries:
         return []
     
     questions = []
     for entry in reversed(entries):
-        for line in entry.split("\n"):
+        entry_str = str(entry) if not isinstance(entry, str) else entry
+        # Procura por "Pergunta:" ou usa a primeira linha como fallback
+        q = None
+        for line in entry_str.split("\n"):
+            line = line.strip()
             if line.startswith("Pergunta:"):
                 q = line.replace("Pergunta:", "").strip()
-                # Trunca para exibir no dropdown
-                display = q[:80] + "..." if len(q) > 80 else q
-                questions.append((display, q))
                 break
+            elif line.startswith("Sintomas:") or line.startswith("sintomas:"):
+                q = line.replace("Sintomas:", "").replace("sintomas:", "").strip()
+                break
+        
+        # Se não encontrou padrão, usa a entrada completa (limitada)
+        if not q:
+            q = entry_str[:200] if len(entry_str) > 200 else entry_str
+        
+        if q:
+            # Trunca para exibir no dropdown
+            display = q[:60] + "..." if len(q) > 60 else q
+            questions.append((display, q))
+    
     return questions
 
 
