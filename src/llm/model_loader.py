@@ -4,6 +4,9 @@ Only used when USE_MOCK_LLM=false.
 
 Base model: unsloth/Qwen2.5-7B-Instruct-bnb-4bit
 Adapter: trained with PEFT/LoRA via unsloth (r=16, alpha=16)
+
+NOTE: Using transformers + PEFT instead of Unsloth for inference
+to avoid gradient_checkpointing bug with Unsloth fast inference.
 """
 
 import os
@@ -12,7 +15,7 @@ from typing import Any
 
 def load_lora_model(model_path: str) -> Any:
     """
-    Load the LoRA adapter using unsloth (matches training environment).
+    Load the LoRA adapter using transformers + PEFT (compatible with Unsloth-trained models).
 
     Args:
         model_path: local path to adapter folder (adapter_config.json + adapter_model.safetensors)
@@ -20,33 +23,30 @@ def load_lora_model(model_path: str) -> Any:
     Returns:
         A callable LLM object with .invoke(prompt) -> str
     """
-    try:
-        from unsloth import FastLanguageModel
-    except ImportError as e:
-        raise ImportError(
-            "unsloth não instalado. Execute: pip install unsloth"
-        ) from e
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
 
     base_model_id = os.environ.get("BASE_MODEL_ID", "unsloth/Qwen2.5-7B-Instruct-bnb-4bit")
 
     print(f"[model_loader] Carregando base model: {base_model_id}")
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=base_model_id,
-        max_seq_length=2048,
+    model = AutoModelForCausalLM.from_pretrained(
+        base_model_id,
         load_in_4bit=True,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
     )
 
+    print(f"[model_loader] Carregando tokenizer: {base_model_id}")
+    tokenizer = AutoTokenizer.from_pretrained(base_model_id)
+
     print(f"[model_loader] Aplicando LoRA adapter: {model_path}")
-    from peft import PeftModel
     model = PeftModel.from_pretrained(model, model_path)
-    FastLanguageModel.for_inference(model)
 
     print("[model_loader] Modelo pronto para inferência.")
 
     class _LoRALLM:
         def invoke(self, prompt: str) -> str:
-            import torch
-
             # Qwen2.5-Instruct usa ChatML — aplicar chat template
             messages = [
                 {
