@@ -24,15 +24,24 @@ def load_lora_model(model_path: str) -> Any:
         A callable LLM object with .invoke(prompt) -> str
     """
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import PeftModel
 
     base_model_id = os.environ.get("BASE_MODEL_ID", "unsloth/Qwen2.5-7B-Instruct-bnb-4bit")
 
     print(f"[model_loader] Carregando base model: {base_model_id}")
+    
+    # Configuração 4-bit via BitsAndBytesConfig
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+    )
+    
     model = AutoModelForCausalLM.from_pretrained(
         base_model_id,
-        load_in_4bit=True,
+        quantization_config=bnb_config,
         device_map="auto",
         torch_dtype=torch.bfloat16,
     )
