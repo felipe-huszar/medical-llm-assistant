@@ -169,9 +169,9 @@ class TestE2EMultipleConsultations:
         save_patient(cpf, {"nome": "Multi Visit", "idade": 45, "sexo": "F", "peso": 70})
         
         questions = [
-            "Primeira consulta: dor de cabeça.",
-            "Retorno: dor persistiu, acrescentou náusea.",
-            "Novo retorno: iniciou vertigem.",
+            "Primeira consulta: cefaleia pulsátil unilateral com fotofobia.",
+            "Retorno: cefaleia persistiu e acrescentou náusea.",
+            "Novo retorno: manteve cefaleia e iniciou fonofobia.",
         ]
         
         for q in questions:
@@ -181,53 +181,3 @@ class TestE2EMultipleConsultations:
         assert len(history) == 3
 
 
-class TestE2EDomainSpecificResponses:
-    """REQ-E2E-5: Different symptoms trigger appropriate domain responses."""
-
-    def test_gastrointestinal_symptoms(self):
-        """Abdominal symptoms return GI-related diagnoses."""
-        cpf = "E2E.GI.001-00"
-        result = run_consultation(
-            cpf=cpf,
-            doctor_question="Paciente com dor abdominal, diarreia e muco nas fezes.",
-            patient_profile={"nome": "GI Patient", "idade": 35, "sexo": "M", "peso": 78},
-        )
-        answer = result["final_answer"].lower()
-        gi_terms = ["intestino", "crohn", "colite", "síndrome", "gi"]
-        assert any(term in answer for term in gi_terms)
-
-    def test_cardiovascular_symptoms(self):
-        """Chest pain symptoms return cardio-related diagnoses."""
-        cpf = "E2E.CARDIO.001-00"
-        result = run_consultation(
-            cpf=cpf,
-            doctor_question="Paciente com dor no peito e dispneia ao esforço.",
-            patient_profile={"nome": "Cardio Patient", "idade": 65, "sexo": "M", "peso": 85},
-        )
-        answer = result["final_answer"].lower()
-        cardio_terms = ["cardíaca", "coronária", "ecg", "troponina", "ecocardiograma"]
-        assert any(term in answer for term in cardio_terms)
-
-    def test_neurological_symptoms(self):
-        """Headache symptoms return neuro-related diagnoses."""
-        cpf = "E2E.NEURO.001-00"
-        result = run_consultation(
-            cpf=cpf,
-            doctor_question="Paciente com cefaleia pulsátil unilateral e fotofobia.",
-            patient_profile={"nome": "Neuro Patient", "idade": 28, "sexo": "F", "peso": 58},
-        )
-        answer = result["final_answer"].lower()
-        neuro_terms = ["enxaqueca", "cefaleia", "migran", "neuro"]
-        assert any(term in answer for term in neuro_terms)
-
-    def test_metabolic_symptoms(self):
-        """Diabetes symptoms return metabolic diagnoses."""
-        cpf = "E2E.METAB.001-00"
-        result = run_consultation(
-            cpf=cpf,
-            doctor_question="Paciente com poliúria, polidipsia e glicemia de jejum 180.",
-            patient_profile={"nome": "Metab Patient", "idade": 50, "sexo": "F", "peso": 75},
-        )
-        answer = result["final_answer"].lower()
-        metab_terms = ["diabetes", "glicemia", "hba1c", "glicada"]
-        assert any(term in answer for term in metab_terms)

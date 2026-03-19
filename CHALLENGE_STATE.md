@@ -1,7 +1,7 @@
 # CHALLENGE_STATE
 
 ## updated_at_utc
-2026-03-19T21:03:00Z
+2026-03-19T21:13:00Z
 
 ## current_focus
 Implementar plano de correção de alucinações e diagnósticos errados em etapas por colab.
@@ -19,3 +19,7 @@ Implementar plano de correção de alucinações e diagnósticos errados em etap
 - Etapa 4 concluída: guardrails de backend implementados para insufficient_data, out_of_scope e minimum_evidence_gate.
 - Prompt de inferência e notebook de fine-tuning alinhados com status explícito da análise.
 - Testes executados: pytest -q tests/unit/test_safety_gate.py tests/unit/test_nodes.py (46 passed).
+- Etapa 5 concluída: suíte backend enxugada para reduzir duplicação entre unit/integration/e2e.
+- Arquivos removidos: tests/e2e/test_extended_e2e.py, tests/e2e/test_pipeline_e2e.py.
+- Arquivo simplificado: tests/e2e/test_audit_logging.py.
+- Resultado: coleta total 171 -> 105; backend 91 passed em 31.88s.
