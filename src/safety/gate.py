@@ -62,6 +62,15 @@ _GRAVE_HYPOTHESES_RULES = {
     "tep": ["dispneia subita", "dor pleuritica", "hemoptise", "sincope", "taquicardia"],
 }
 
+_STATUS_ALIASES = {
+    "suspicious": "supported_hypothesis",
+    "provavel": "supported_hypothesis",
+    "provável": "supported_hypothesis",
+    "likely": "supported_hypothesis",
+    "plausible": "supported_hypothesis",
+    "urgent": "needs_urgent_escalation",
+}
+
 _ALLOWED_NONSUPPORTED_STATUSES = {
     "insufficient_data",
     "out_of_scope",
@@ -120,7 +129,11 @@ def validate_response(raw_response: str, context_text: str = "") -> dict:
     sections = _extract_sections(text)
     result["sections"] = sections
 
-    analysis_status = sections.get("Status da análise", "").strip().lower()
+    raw_status = sections.get("Status da análise", "").strip()
+    analysis_status = _normalize(raw_status)
+    analysis_status = _STATUS_ALIASES.get(analysis_status, analysis_status)
+    if raw_status:
+        sections["Status da análise"] = analysis_status
     result["analysis_status"] = analysis_status
 
     hypothesis = sections.get("Hipótese diagnóstica principal", "").strip()

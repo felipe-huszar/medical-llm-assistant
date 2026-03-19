@@ -134,9 +134,11 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
         "- Use apenas informações explicitamente fornecidas.\n"
         "- Não invente histórico, comorbidades ou fatores de risco prévios.\n"
         "- Se não houver histórico, escreva literalmente: 'Histórico relevante não informado'.\n"
-        "- Se os dados forem insuficientes para priorizar hipótese principal com segurança, use status 'insufficient_data'.\n"
+        "- Use status 'insufficient_data' somente quando os dados disponíveis não permitirem priorização clínica razoável.\n"
+        "- A ausência de detalhes acessórios ou exames ainda não realizados não impede 'supported_hypothesis' quando o quadro clínico central já for suficientemente característico.\n"
         "- Se o caso estiver fora do escopo principal do assistente, use status 'out_of_scope' e sugira a especialidade.\n"
         "- Não afirme hipótese grave como principal sem evidência mínima no caso informado.\n"
+        "- Use apenas um destes status: supported_hypothesis, insufficient_data, out_of_scope, needs_urgent_escalation.\n"
         "- Estruture a resposta com: Status da análise, Resumo clínico, Hipótese diagnóstica principal, Diagnósticos diferenciais, Exames recomendados, Raciocínio clínico.\n"
         "- Se aplicável, inclua Dados faltantes e Especialidade sugerida."
     )

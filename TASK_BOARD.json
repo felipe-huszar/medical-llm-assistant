@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-03-19T23:19:00Z",
+  "updated_at_utc": "2026-03-19T23:53:00Z",
   "tasks": [
     {
       "id": "system-gradio-benchmark-mode",
@@ -36,6 +36,12 @@
       "status": "done",
       "title": "Corrigir inconsistência entre insufficient_data e hipótese grave afirmativa no gate",
       "note": "match normalizado e regra de consistência adicionados; 47 testes unitários passaram"
+    },
+    {
+      "id": "recalibrate-abstention-bias",
+      "status": "done",
+      "title": "Reduzir viés de insufficient_data e aceitar aliases úteis de status",
+      "note": "generator 80/12/8, ancillary-missing supported cases, prompts updated, suspicious normalized"
     }
   ]
 }

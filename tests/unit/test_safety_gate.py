@@ -133,6 +133,29 @@ dermatologia especializada"""
         assert result["needs_escalation"] is False
         assert result["safety_passed"] is True
 
+    def test_suspicious_status_is_normalized_to_supported_hypothesis(self):
+        raw = """Status da análise:
+suspicious
+
+Resumo clínico:
+Paciente com dor torácica opressiva irradiando para braço esquerdo.
+
+Hipótese diagnóstica principal:
+síndrome coronariana aguda
+
+Diagnósticos diferenciais:
+- tromboembolismo pulmonar
+
+Exames recomendados:
+- ECG
+- troponina
+
+Raciocínio clínico:
+Quadro fortemente sugestivo de SCA."""
+        result = validate_response(raw, context_text="dor torácica opressiva, sudorese, dispneia e irradiação para braço esquerdo")
+        assert result["needs_escalation"] is False
+        assert result["analysis_status"] == "supported_hypothesis"
+
     def test_insufficient_data_cannot_keep_grave_main_hypothesis(self):
         raw = """Status da análise:
 insufficient_data

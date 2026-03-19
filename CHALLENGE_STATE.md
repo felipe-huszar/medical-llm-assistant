@@ -1,7 +1,7 @@
 # CHALLENGE_STATE
 
 ## updated_at_utc
-2026-03-19T23:19:00Z
+2026-03-19T23:53:00Z
 
 ## current_focus
 Implementar plano de correção de alucinações e diagnósticos errados em etapas por colab.
@@ -25,3 +25,6 @@ Implementar plano de correção de alucinações e diagnósticos errados em etap
 - Resultado: coleta total 171 -> 105; backend 91 passed em 31.88s.
 - Etapa 6 concluída: guardrail endurecido para impedir status insufficient_data com hipótese grave afirmativa e corrigido match normalizado de hipóteses graves (ex.: SCA com/sem acento).
 - Testes executados: pytest -q tests/unit/test_safety_gate.py tests/unit/test_nodes.py (47 passed).
+- Etapa 7 concluída: recalibração para reduzir conservadorismo excessivo.
+- Ajustes: status aliases (ex.: suspicious -> supported_hypothesis), prompts menos conservadores, gerador com 80/12/8 e casos supported_hypothesis com dados acessórios faltantes.
+- Testes executados: pytest -q tests/unit/test_safety_gate.py tests/unit/test_nodes.py (48 passed).
