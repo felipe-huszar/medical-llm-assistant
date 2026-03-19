@@ -72,8 +72,8 @@ e certifique-se de que o adapter LoRA está montado no Drive.
   - `colabs/gerador_casos_sinteticos.ipynb`
   - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/gerador_casos_sinteticos.ipynb
 - Fine-tuning Qwen 14B:
-  - `colabs/finetuning_qwen14b.ipynb`
-  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/finetuning_qwen14b.ipynb
+  - `colabs/finetuning.ipynb`
+  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/finetuning.ipynb
 
 ## Safety Gate
 

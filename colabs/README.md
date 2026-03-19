@@ -15,8 +15,8 @@ Objetivo: versionar os notebooks-base usados no projeto e facilitar abertura dir
   - Colab: https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/gerador_casos_sinteticos.ipynb
 
 - Fine-tuning Qwen 14B:
-  - GitHub: `colabs/finetuning_qwen14b.ipynb`
-  - Colab: https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/finetuning_qwen14b.ipynb
+  - GitHub: `colabs/finetuning.ipynb`
+  - Colab: https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/finetuning.ipynb
 
 ## Observações
 
