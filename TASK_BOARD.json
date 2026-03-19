@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-03-19T20:16:00Z",
+  "updated_at_utc": "2026-03-19T20:20:00Z",
   "tasks": [
     {
       "id": "system-gradio-benchmark-mode",
@@ -15,8 +15,9 @@
     },
     {
       "id": "finetuning-refactor",
-      "status": "in_progress",
-      "title": "Refatorar fine-tuning para dataset misto com eval set e adapter-only save"
+      "status": "done",
+      "title": "Refatorar fine-tuning para dataset misto com eval set e adapter-only save",
+      "note": "single-stage mixed dataset, eval split, adapter-only artifact"
     }
   ]
 }
