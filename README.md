@@ -42,7 +42,7 @@ data/
 └── patients_seed.json  ← 3 pacientes de exemplo
 
 app.py             ← Gradio UI (Tab Paciente + Tab Consulta)
-notebook.ipynb     ← Notebook Colab self-contained
+colabs/system_gradio.ipynb ← Colab principal do sistema/Gradio
 colabs/            ← Colabs versionados no repo
 requirements.txt
 ```
@@ -59,12 +59,15 @@ USE_MOCK_LLM=false MODEL_PATH=/content/drive/MyDrive/medical_llm_lora python app
 
 ## Colab
 
-Abra `notebook.ipynb` no Google Colab e execute as células em ordem.
+Abra `colabs/system_gradio.ipynb` no Google Colab e execute as células em ordem.
 Para usar o modelo real, defina `USE_MOCK_LLM = 'false'` na célula de config
 e certifique-se de que o adapter LoRA está montado no Drive.
 
 ### Colabs versionados
 
+- Sistema principal / Gradio:
+  - `colabs/system_gradio.ipynb`
+  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/system_gradio.ipynb
 - Gerador de casos sintéticos:
   - `colabs/gerador_casos_sinteticos.ipynb`
   - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/gerador_casos_sinteticos.ipynb

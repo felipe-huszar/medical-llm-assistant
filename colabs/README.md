@@ -6,6 +6,10 @@ Objetivo: versionar os notebooks-base usados no projeto e facilitar abertura dir
 
 ## Abrir direto no Colab
 
+- Sistema principal / Gradio:
+  - GitHub: `colabs/system_gradio.ipynb`
+  - Colab: https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/system_gradio.ipynb
+
 - Gerador de casos sintéticos:
   - GitHub: `colabs/gerador_casos_sinteticos.ipynb`
   - Colab: https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/gerador_casos_sinteticos.ipynb
