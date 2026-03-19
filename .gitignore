@@ -12,3 +12,8 @@ chroma_db/
 audit_logs/
 _archive_2026-03-06/
 docs/original/
+.gradio/
+docs/relatorio_*.md
+docs/relatorio_*.json
+docs/evidencias_*.md
+docs/testes_exploratorios.md

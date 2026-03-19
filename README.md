@@ -63,6 +63,15 @@ Abra `notebook.ipynb` no Google Colab e execute as células em ordem.
 Para usar o modelo real, defina `USE_MOCK_LLM = 'false'` na célula de config
 e certifique-se de que o adapter LoRA está montado no Drive.
 
+### Colabs base do Lucas
+
+- Gerador de casos sintéticos:
+  - `colabs/lucas/gerador_casos_sinteticos_lucas.ipynb`
+  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/lucas/gerador_casos_sinteticos_lucas.ipynb
+- Fine-tuning Qwen 14B:
+  - `colabs/lucas/finetuning_qwen14b_lucas.ipynb`
+  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/lucas/finetuning_qwen14b_lucas.ipynb
+
 ## Safety Gate
 
 - `recommendation_type == "prescription"` → escalação automática  
