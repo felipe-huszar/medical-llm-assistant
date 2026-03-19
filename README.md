@@ -43,7 +43,7 @@ data/
 
 app.py             ← Gradio UI (Tab Paciente + Tab Consulta)
 notebook.ipynb     ← Notebook Colab self-contained
-colabs/lucas/      ← Colabs-base do Lucas versionados no repo
+colabs/            ← Colabs versionados no repo
 requirements.txt
 ```
 
@@ -63,14 +63,14 @@ Abra `notebook.ipynb` no Google Colab e execute as células em ordem.
 Para usar o modelo real, defina `USE_MOCK_LLM = 'false'` na célula de config
 e certifique-se de que o adapter LoRA está montado no Drive.
 
-### Colabs base do Lucas
+### Colabs versionados
 
 - Gerador de casos sintéticos:
-  - `colabs/lucas/gerador_casos_sinteticos_lucas.ipynb`
-  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/lucas/gerador_casos_sinteticos_lucas.ipynb
+  - `colabs/gerador_casos_sinteticos.ipynb`
+  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/gerador_casos_sinteticos.ipynb
 - Fine-tuning Qwen 14B:
-  - `colabs/lucas/finetuning_qwen14b_lucas.ipynb`
-  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/lucas/finetuning_qwen14b_lucas.ipynb
+  - `colabs/finetuning_qwen14b.ipynb`
+  - https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/main/colabs/finetuning_qwen14b.ipynb
 
 ## Safety Gate
 
