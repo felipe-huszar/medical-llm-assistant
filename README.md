@@ -43,6 +43,7 @@ data/
 
 app.py             ← Gradio UI (Tab Paciente + Tab Consulta)
 notebook.ipynb     ← Notebook Colab self-contained
+colabs/lucas/      ← Colabs-base do Lucas versionados no repo
 requirements.txt
 ```
 
