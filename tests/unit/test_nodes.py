@@ -265,7 +265,10 @@ Exames recomendados:
         assert len(result["final_answer"]) > 0
 
 
-_PROSE_RESPONSE = """Resumo clínico:
+_PROSE_RESPONSE = """Status da análise:
+supported_hypothesis
+
+Resumo clínico:
 Paciente com sintomas gastrointestinais crônicos.
 
 Raciocínio clínico:
@@ -305,6 +308,47 @@ class TestSaveAndFormatNode:
         state = _base_state(raw_response=_PROSE_RESPONSE, parsed_response=sections, safety_passed=True)
         result = save_and_format(state)
         assert "Colonoscopia" in result["final_answer"] or "PCR" in result["final_answer"]
+
+    def test_final_answer_contains_analysis_status(self):
+        from src.safety.gate import _extract_sections
+        sections = _extract_sections(_PROSE_RESPONSE)
+        state = _base_state(raw_response=_PROSE_RESPONSE, parsed_response=sections, safety_passed=True)
+        result = save_and_format(state)
+        assert "Status da Análise" in result["final_answer"]
+        assert "supported_hypothesis" in result["final_answer"]
+
+    def test_final_answer_contains_missing_data_and_specialty_when_present(self):
+        from src.safety.gate import _extract_sections
+        raw = """Status da análise:
+out_of_scope
+
+Resumo clínico:
+Caso requer avaliação especializada.
+
+Hipótese diagnóstica principal:
+fora do escopo principal do assistente
+
+Diagnósticos diferenciais:
+- avaliação especializada necessária
+
+Exames recomendados:
+- encaminhamento
+
+Dados faltantes:
+- foto da lesão
+- dermatoscopia
+
+Especialidade sugerida:
+dermatologia especializada
+
+Raciocínio clínico:
+Necessita avaliação específica."""
+        sections = _extract_sections(raw)
+        state = _base_state(raw_response=raw, parsed_response=sections, safety_passed=True)
+        result = save_and_format(state)
+        assert "Dados Faltantes" in result["final_answer"]
+        assert "Especialidade Sugerida" in result["final_answer"]
+        assert "dermatologia especializada" in result["final_answer"]
 
     def test_consultation_is_persisted(self):
         """REQ-NODE-7: consultation is saved to ChromaDB."""

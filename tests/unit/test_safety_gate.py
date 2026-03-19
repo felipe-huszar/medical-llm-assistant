@@ -4,8 +4,10 @@ Tests for safety gate — prose format validation.
 import pytest
 from src.safety.gate import validate_response, format_escalation_message, _extract_sections, _extract_list_items
 
-# Resposta clínica válida no formato Lucas
-_VALID_PROSE = """Resumo clínico:
+_VALID_PROSE = """Status da análise:
+supported_hypothesis
+
+Resumo clínico:
 Paciente com dispneia progressiva e edema periférico.
 
 Raciocínio clínico:
@@ -26,7 +28,8 @@ Exames recomendados:
 
 class TestSafetyGateRules:
     def test_valid_response_passes(self):
-        result = validate_response(_VALID_PROSE)
+        ctx = "Sintomas relatados:\ndispneia progressiva; edema em membros inferiores; ortopneia"
+        result = validate_response(_VALID_PROSE, context_text=ctx)
         assert result["safety_passed"] is True
         assert result["needs_escalation"] is False
 
@@ -46,33 +49,97 @@ class TestSafetyGateRules:
 
     def test_dose_prescription_escalates(self):
         result = validate_response("tome 2 comprimidos de 500mg/dia de enalapril")
-        # Muito curto OU contém prescrição — ambos escapam
         assert result["needs_escalation"] is True
 
     def test_sections_extracted(self):
-        result = validate_response(_VALID_PROSE)
+        result = validate_response(_VALID_PROSE, context_text="dispneia progressiva e edema")
         sections = result["sections"]
         assert "Hipótese diagnóstica principal" in sections
         assert "Diagnósticos diferenciais" in sections
         assert "Exames recomendados" in sections
+        assert "Status da análise" in sections
 
     def test_hipotese_content(self):
-        result = validate_response(_VALID_PROSE)
+        result = validate_response(_VALID_PROSE, context_text="dispneia progressiva e edema")
         hipotese = result["sections"].get("Hipótese diagnóstica principal", "")
         assert "Insuficiência cardíaca" in hipotese
 
+    def test_insufficient_data_guardrail_escalates_if_not_recognized(self):
+        raw = """Status da análise:
+supported_hypothesis
+
+Resumo clínico:
+Paciente com dor de cabeça leve.
+
+Raciocínio clínico:
+Sugere quadro neurológico a esclarecer.
+
+Hipótese diagnóstica principal:
+hemorragia subaracnoide
+
+Diagnósticos diferenciais:
+- enxaqueca
+
+Exames recomendados:
+- tomografia de crânio"""
+        result = validate_response(raw, context_text="Sintomas relatados:\ndor de cabeça leve")
+        assert result["needs_escalation"] is True
+        assert "insuficientes" in result["reason"].lower() or "evidência" in result["reason"].lower()
+
+    def test_out_of_scope_guardrail_escalates_if_not_recognized(self):
+        raw = """Status da análise:
+supported_hypothesis
+
+Resumo clínico:
+Paciente com lesão cutânea crônica.
+
+Raciocínio clínico:
+Necessita avaliação.
+
+Hipótese diagnóstica principal:
+dermatite
+
+Diagnósticos diferenciais:
+- psoríase
+
+Exames recomendados:
+- avaliação clínica"""
+        result = validate_response(raw, context_text="Lesão cutânea crônica com necessidade de dermatoscopia.")
+        assert result["needs_escalation"] is True
+        assert "fora do escopo" in result["reason"].lower() or "escopo" in result["reason"].lower()
+
+    def test_out_of_scope_status_passes(self):
+        raw = """Status da análise:
+out_of_scope
+
+Resumo clínico:
+Caso requer avaliação especializada.
+
+Hipótese diagnóstica principal:
+fora do escopo principal do assistente
+
+Diagnósticos diferenciais:
+- avaliação especializada necessária
+
+Exames recomendados:
+- encaminhamento para especialista
+
+Raciocínio clínico:
+Pergunta exige exame especializado.
+
+Especialidade sugerida:
+dermatologia especializada"""
+        result = validate_response(raw, context_text="Lesão cutânea crônica com necessidade de dermatoscopia.")
+        assert result["needs_escalation"] is False
+        assert result["safety_passed"] is True
+
     def test_safety_passed_true_on_valid(self):
-        result = validate_response(_VALID_PROSE)
+        result = validate_response(_VALID_PROSE, context_text="dispneia progressiva edema ortopneia")
         assert result["safety_passed"] is True
 
     def test_safety_passed_false_on_short(self):
         result = validate_response("texto curto")
         assert result["safety_passed"] is False
-
-    def test_high_quality_response_passes(self):
-        long_prose = _VALID_PROSE + "\n\nInformações adicionais relevantes para o caso clínico apresentado pelo médico."
-        result = validate_response(long_prose)
-        assert result["safety_passed"] is True
 
 
 class TestExtractSections:
@@ -83,6 +150,7 @@ class TestExtractSections:
         assert "Hipótese diagnóstica principal" in sections
         assert "Diagnósticos diferenciais" in sections
         assert "Exames recomendados" in sections
+        assert "Status da análise" in sections
 
     def test_hipotese_value(self):
         sections = _extract_sections(_VALID_PROSE)

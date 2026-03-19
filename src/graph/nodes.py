@@ -133,7 +133,12 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
         "Regras críticas:\n"
         "- Use apenas informações explicitamente fornecidas.\n"
         "- Não invente histórico, comorbidades ou fatores de risco prévios.\n"
-        "- Se não houver histórico, escreva literalmente: 'Histórico relevante não informado'."
+        "- Se não houver histórico, escreva literalmente: 'Histórico relevante não informado'.\n"
+        "- Se os dados forem insuficientes para priorizar hipótese principal com segurança, use status 'insufficient_data'.\n"
+        "- Se o caso estiver fora do escopo principal do assistente, use status 'out_of_scope' e sugira a especialidade.\n"
+        "- Não afirme hipótese grave como principal sem evidência mínima no caso informado.\n"
+        "- Estruture a resposta com: Status da análise, Resumo clínico, Hipótese diagnóstica principal, Diagnósticos diferenciais, Exames recomendados, Raciocínio clínico.\n"
+        "- Se aplicável, inclua Dados faltantes e Especialidade sugerida."
     )
 
     context_block = (
@@ -180,7 +185,7 @@ def llm_reasoning(state: ClinicalState, llm: Any = None) -> ClinicalState:
 def safety_gate(state: ClinicalState) -> ClinicalState:
     """Validate LLM response against safety rules (prose format)."""
     raw = state.get("raw_response", "")
-    validation = validate_response(raw)
+    validation = validate_response(raw, context_text=state.get("prompt", ""))
 
     state["safety_passed"] = validation["safety_passed"]
     state["needs_escalation"] = validation["needs_escalation"]
@@ -255,20 +260,27 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     sections = state.get("parsed_response") or {}
 
     # Extrai seções da prosa
+    status_analise = sections.get("Status da análise", "").strip()
     resumo      = sections.get("Resumo clínico", "").strip()
     raciocinio  = sections.get("Raciocínio clínico", "").strip()
     hipotese    = sections.get("Hipótese diagnóstica principal", "").strip()
     diferenciais_raw = sections.get("Diagnósticos diferenciais", "")
     exames_raw  = sections.get("Exames recomendados", "")
+    dados_faltantes_raw = sections.get("Dados faltantes", "")
+    especialidade_sugerida = sections.get("Especialidade sugerida", "").strip()
 
     diferenciais = _extract_list_items(diferenciais_raw)
     exames       = _extract_list_items(exames_raw)
+    dados_faltantes = _extract_list_items(dados_faltantes_raw)
 
     # --- Monta markdown rico para o Gradio ---
     def _bullet_list(items):
         return "\n".join(f"  • {i}" for i in items) if items else "  • N/A"
 
     parts = ["## 🩺 Análise Clínica\n"]
+
+    if status_analise:
+        parts.append(f"### 🧭 Status da Análise\n{status_analise}\n")
 
     if resumo:
         parts.append(f"### 📋 Resumo Clínico\n{resumo}\n")
@@ -282,6 +294,12 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     if exames:
         parts.append(f"### 🧪 Exames Recomendados\n{_bullet_list(exames)}\n")
 
+    if dados_faltantes:
+        parts.append(f"### ❓ Dados Faltantes\n{_bullet_list(dados_faltantes)}\n")
+
+    if especialidade_sugerida:
+        parts.append(f"### 👨‍⚕️ Especialidade Sugerida\n{especialidade_sugerida}\n")
+
     if raciocinio:
         parts.append(f"### 💭 Raciocínio Clínico\n{raciocinio}\n")
 
@@ -292,7 +310,8 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
 
     benchmark_mode = bool(state.get("benchmark_mode", False))
     audit_log("consultation_saved", cpf=cpf, node="save_and_format",
-              hipotese=hipotese, diferenciais_count=len(diferenciais),
+              hipotese=hipotese, analysis_status=status_analise,
+              diferenciais_count=len(diferenciais),
               exames_count=len(exames), sections_found=list(sections.keys()),
               benchmark_mode=benchmark_mode)
 

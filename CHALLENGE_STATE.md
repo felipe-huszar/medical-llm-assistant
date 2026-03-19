@@ -1,7 +1,7 @@
 # CHALLENGE_STATE
 
 ## updated_at_utc
-2026-03-19T20:20:00Z
+2026-03-19T21:03:00Z
 
 ## current_focus
 Implementar plano de correção de alucinações e diagnósticos errados em etapas por colab.
@@ -16,3 +16,6 @@ Implementar plano de correção de alucinações e diagnósticos errados em etap
 - Smoke test do gerador executado com 50 exemplos.
 - Etapa 3 concluída: finetuning reescrito para single-stage mixed training com eval set e adapter-only save.
 - Validação executada: parsing/syntax check das células de código do notebook.
+- Etapa 4 concluída: guardrails de backend implementados para insufficient_data, out_of_scope e minimum_evidence_gate.
+- Prompt de inferência e notebook de fine-tuning alinhados com status explícito da análise.
+- Testes executados: pytest -q tests/unit/test_safety_gate.py tests/unit/test_nodes.py (46 passed).
