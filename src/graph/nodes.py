@@ -58,10 +58,17 @@ def check_patient(state: ClinicalState) -> ClinicalState:
 def retrieve_history(state: ClinicalState) -> ClinicalState:
     """Fetch last consultation summaries for this patient."""
     cpf = state["cpf"]
+    benchmark_mode = bool(state.get("benchmark_mode", False))
+    if benchmark_mode:
+        state["consultation_history"] = []
+        audit_log("node_executed", cpf=cpf, node="retrieve_history",
+                  history_count=0, benchmark_mode=True)
+        return state
+
     history = get_consultation_history(cpf, n_results=5)
     state["consultation_history"] = history
     audit_log("node_executed", cpf=cpf, node="retrieve_history",
-              history_count=len(history))
+              history_count=len(history), benchmark_mode=False)
     return state
 
 
@@ -283,21 +290,24 @@ def save_and_format(state: ClinicalState) -> ClinicalState:
     answer = "\n".join(parts)
     state["final_answer"] = answer
 
+    benchmark_mode = bool(state.get("benchmark_mode", False))
     audit_log("consultation_saved", cpf=cpf, node="save_and_format",
               hipotese=hipotese, diferenciais_count=len(diferenciais),
-              exames_count=len(exames), sections_found=list(sections.keys()))
+              exames_count=len(exames), sections_found=list(sections.keys()),
+              benchmark_mode=benchmark_mode)
 
     # Salva prosa no ChromaDB (contexto para próximas consultas)
-    save_consultation(
-        cpf=cpf,
-        question=question,
-        answer=raw,  # salva resposta bruta para contexto de RAG
-        metadata={
-            "hipotese": hipotese,
-            "exames": json.dumps(exames),
-            "diferenciais": json.dumps(diferenciais),
-        },
-    )
+    if not benchmark_mode:
+        save_consultation(
+            cpf=cpf,
+            question=question,
+            answer=raw,  # salva resposta bruta para contexto de RAG
+            metadata={
+                "hipotese": hipotese,
+                "exames": json.dumps(exames),
+                "diferenciais": json.dumps(diferenciais),
+            },
+        )
 
     return state
 

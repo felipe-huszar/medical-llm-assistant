@@ -8,6 +8,7 @@ Flow:
 
 from __future__ import annotations
 
+import os
 from functools import partial
 from typing import Any, Literal
 
@@ -76,6 +77,7 @@ def run_consultation(
     doctor_question: str,
     llm: Any = None,
     patient_profile: dict | None = None,
+    benchmark_mode: bool | None = None,
 ) -> ClinicalState:
     """
     Run the full consultation pipeline.
@@ -85,6 +87,7 @@ def run_consultation(
         doctor_question: Clinical question from the doctor.
         llm: LLM instance (MockLLM or real). If None, factory is used.
         patient_profile: Optional profile to auto-register new patients.
+        benchmark_mode: When True, disables history reuse and persistence for isolated evaluation.
 
     Returns:
         Final ClinicalState with 'final_answer'.
@@ -105,7 +108,11 @@ def run_consultation(
             "sources": [],
             "final_answer": "⚠️ CPF inválido ou vazio. Informe um CPF válido.",
             "needs_escalation": True,
+            "benchmark_mode": False,
         }
+
+    if benchmark_mode is None:
+        benchmark_mode = os.environ.get("BENCHMARK_MODE", "false").lower() == "true"
 
     # Pre-register patient if profile provided and not yet in DB
     if patient_profile and not patient_exists(cpf):
@@ -125,6 +132,7 @@ def run_consultation(
         "sources": [],
         "final_answer": "",
         "needs_escalation": False,
+        "benchmark_mode": benchmark_mode,
     }
 
     final_state = pipeline.invoke(initial_state)

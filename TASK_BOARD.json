@@ -1,0 +1,21 @@
+{
+  "updated_at_utc": "2026-03-19T20:15:00Z",
+  "tasks": [
+    {
+      "id": "system-gradio-benchmark-mode",
+      "status": "done",
+      "title": "Adicionar benchmark mode e isolamento de avaliação no colab principal",
+      "note": "benchmark mode isola histórico e persistência; helper adicionado ao colab principal"
+    },
+    {
+      "id": "synthetic-generator-rewrite",
+      "status": "in_progress",
+      "title": "Reescrever gerador sintético com casos dirigidos por doença, negativos explícitos e abstention/out-of-scope"
+    },
+    {
+      "id": "finetuning-refactor",
+      "status": "todo",
+      "title": "Refatorar fine-tuning para dataset misto com eval set e adapter-only save"
+    }
+  ]
+}

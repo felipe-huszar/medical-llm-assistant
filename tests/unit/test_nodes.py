@@ -94,6 +94,16 @@ class TestRetrieveHistoryNode:
         result = retrieve_history(state)
         assert len(result["consultation_history"]) >= 1
 
+    def test_benchmark_mode_skips_history_loading(self):
+        """Benchmark mode must ignore persisted history for isolated evaluation."""
+        from src.rag.patient_rag import save_consultation
+        cpf = "BEN.CHM.ARK-00"
+        save_consultation(cpf, "Pergunta anterior?", "Resposta anterior.")
+
+        state = _base_state(cpf=cpf, benchmark_mode=True)
+        result = retrieve_history(state)
+        assert result["consultation_history"] == []
+
 
 class TestBuildPromptNode:
     def test_prompt_contains_question(self):
@@ -310,3 +320,18 @@ class TestSaveAndFormatNode:
         history = get_consultation_history(cpf)
         assert len(history) == 1
         assert "Dor abdominal?" in history[0]
+
+    def test_benchmark_mode_does_not_persist_consultation(self):
+        """Benchmark mode must not contaminate future evaluations with saved history."""
+        from src.rag.patient_rag import get_consultation_history
+        cpf = "SAVE.BENCH.00"
+        state = _base_state(
+            cpf=cpf,
+            raw_response=_PROSE_RESPONSE,
+            doctor_question="Dor abdominal?",
+            safety_passed=True,
+            benchmark_mode=True,
+        )
+        save_and_format(state)
+        history = get_consultation_history(cpf)
+        assert history == []
