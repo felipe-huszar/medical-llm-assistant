@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-03-19T20:15:00Z",
+  "updated_at_utc": "2026-03-19T20:16:00Z",
   "tasks": [
     {
       "id": "system-gradio-benchmark-mode",
@@ -9,12 +9,13 @@
     },
     {
       "id": "synthetic-generator-rewrite",
-      "status": "in_progress",
-      "title": "Reescrever gerador sintético com casos dirigidos por doença, negativos explícitos e abstention/out-of-scope"
+      "status": "done",
+      "title": "Reescrever gerador sintético com casos dirigidos por doença, negativos explícitos e abstention/out-of-scope",
+      "note": "disease-centric generation, negatives, insufficient_data and out_of_scope cases added"
     },
     {
       "id": "finetuning-refactor",
-      "status": "todo",
+      "status": "in_progress",
       "title": "Refatorar fine-tuning para dataset misto com eval set e adapter-only save"
     }
   ]
