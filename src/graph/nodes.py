@@ -190,14 +190,30 @@ def safety_gate(state: ClinicalState) -> ClinicalState:
             sections.get("Raciocínio clínico", ""),
         ]).lower()
 
-        suspicious_markers = [
-            "com histórico de",
-            "histórico de ",
-            "histórico relevante:",
-            "paciente com histórico",
+        # Permite explicitar ausência de histórico/comorbidades.
+        allowed_absence_markers = [
+            "histórico relevante não informado",
+            "histórico não informado",
+            "sem histórico relevante",
+            "não há histórico",
+            "comorbidades registradas: nenhuma",
+            "comorbidades conhecidas como nenhuma",
+            "sem comorbidades",
+            "nenhuma comorbidade",
         ]
 
-        if any(marker in summary_and_reasoning for marker in suspicious_markers):
+        # Bloqueia apenas afirmação positiva de histórico específico ausente do contexto.
+        suspicious_markers = [
+            "com histórico de ",
+            "histórico de ",
+            "histórico relevante:",
+            "paciente com histórico de ",
+        ]
+
+        has_allowed_absence = any(marker in summary_and_reasoning for marker in allowed_absence_markers)
+        has_positive_history_claim = any(marker in summary_and_reasoning for marker in suspicious_markers)
+
+        if has_positive_history_claim and not has_allowed_absence:
             validation["needs_escalation"] = True
             validation["safety_passed"] = False
             validation["reason"] = (

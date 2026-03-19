@@ -225,6 +225,27 @@ Exames recomendados:
         assert result["safety_passed"] is False
         assert "histórico/comorbidades" in result["final_answer"].lower() or "revisão" in result["final_answer"].lower()
 
+    def test_missing_history_statement_does_not_fail_gate(self):
+        """REQ-NODE-6: explicit absence of history must not be treated as hallucination."""
+        raw = """Resumo clínico:
+Paciente apresentando dor de cabeça intensa.
+
+Raciocínio clínico:
+Paciente com histórico relevante não informado e comorbidades conhecidas como nenhuma. Dor de cabeça súbita intensa requer investigação.
+
+Hipótese diagnóstica principal:
+cefaleia em investigação
+
+Diagnósticos diferenciais:
+- enxaqueca
+
+Exames recomendados:
+- tomografia de crânio"""
+        state = _base_state(raw_response=raw, has_explicit_history=False)
+        result = safety_gate(state)
+        assert result["needs_escalation"] is False
+        assert result["safety_passed"] is True
+
     def test_escalation_sets_final_answer(self):
         """REQ-NODE-6: on escalation, final_answer is set to escalation message."""
         raw = "ok"  # muito curto → escalation
