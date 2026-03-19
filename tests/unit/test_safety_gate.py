@@ -133,6 +133,33 @@ dermatologia especializada"""
         assert result["needs_escalation"] is False
         assert result["safety_passed"] is True
 
+    def test_insufficient_data_cannot_keep_grave_main_hypothesis(self):
+        raw = """Status da análise:
+insufficient_data
+
+Resumo clínico:
+Paciente apresentando dor no peito intensa.
+
+Hipótese diagnóstica principal:
+síndrome coronariana aguda
+
+Diagnósticos diferenciais:
+- dor torácica inespecífica
+
+Exames recomendados:
+- ECG
+- troponina
+
+Dados faltantes:
+- localização da dor
+- irradiação
+
+Raciocínio clínico:
+Dor torácica pode ter causa importante."""
+        result = validate_response(raw, context_text="Sintomas relatados:\ndor no peito intensa")
+        assert result["needs_escalation"] is True
+        assert "inconsistente" in result["reason"].lower()
+
     def test_safety_passed_true_on_valid(self):
         result = validate_response(_VALID_PROSE, context_text="dispneia progressiva edema ortopneia")
         assert result["safety_passed"] is True

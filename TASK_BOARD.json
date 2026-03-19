@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-03-19T21:13:00Z",
+  "updated_at_utc": "2026-03-19T23:19:00Z",
   "tasks": [
     {
       "id": "system-gradio-benchmark-mode",
@@ -30,6 +30,12 @@
       "status": "done",
       "title": "Enxugar suíte automatizada de backend removendo duplicação e E2E redundante",
       "note": "171 -> 105 coletados; backend 91 passed"
+    },
+    {
+      "id": "guardrail-consistency-fix",
+      "status": "done",
+      "title": "Corrigir inconsistência entre insufficient_data e hipótese grave afirmativa no gate",
+      "note": "match normalizado e regra de consistência adicionados; 47 testes unitários passaram"
     }
   ]
 }

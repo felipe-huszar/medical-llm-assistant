@@ -68,6 +68,21 @@ _ALLOWED_NONSUPPORTED_STATUSES = {
     "needs_urgent_escalation",
 }
 
+_INSUFFICIENT_DATA_HYPOTHESIS_ALLOWED = {
+    "indeterminada",
+    "indeterminada com os dados atuais",
+    "necessita refinamento clinico",
+    "necessita refinamento clínico",
+    "avaliacao adicional necessaria",
+    "avaliação adicional necessária",
+}
+
+_OUT_OF_SCOPE_HYPOTHESIS_ALLOWED = {
+    "fora do escopo principal do assistente",
+    "avaliacao especializada necessaria",
+    "avaliação especializada necessária",
+}
+
 
 def validate_response(raw_response: str, context_text: str = "") -> dict:
     """
@@ -108,17 +123,31 @@ def validate_response(raw_response: str, context_text: str = "") -> dict:
     analysis_status = sections.get("Status da análise", "").strip().lower()
     result["analysis_status"] = analysis_status
 
+    hypothesis = sections.get("Hipótese diagnóstica principal", "").strip()
+    normalized_hypothesis = _normalize(hypothesis)
+
     # Guardrail 1: fora de escopo deve ser reconhecido explicitamente
     if _looks_out_of_scope(context_text):
         specialty = sections.get("Especialidade sugerida", "").strip()
-        hypothesis = sections.get("Hipótese diagnóstica principal", "").strip().lower()
-        if analysis_status != "out_of_scope" and "fora do escopo" not in hypothesis and not specialty:
+        if analysis_status != "out_of_scope" and "fora do escopo" not in normalized_hypothesis and not specialty:
             result["needs_escalation"] = True
             result["reason"] = "Caso potencialmente fora do escopo principal do assistente sem reconhecimento explícito de limitação."
             return result
 
-    # Guardrail 2: hipóteses graves precisam de evidência mínima no contexto
-    hypothesis = sections.get("Hipótese diagnóstica principal", "").strip()
+    # Guardrail 2: status insuficiente/fora de escopo precisa ser consistente com a hipótese principal
+    if analysis_status == "insufficient_data":
+        if normalized_hypothesis not in {_normalize(x) for x in _INSUFFICIENT_DATA_HYPOTHESIS_ALLOWED}:
+            result["needs_escalation"] = True
+            result["reason"] = "Status insufficient_data inconsistente com hipótese principal afirmativa. A hipótese principal deve permanecer indeterminada quando faltarem dados."
+            return result
+
+    if analysis_status == "out_of_scope":
+        if normalized_hypothesis not in {_normalize(x) for x in _OUT_OF_SCOPE_HYPOTHESIS_ALLOWED}:
+            result["needs_escalation"] = True
+            result["reason"] = "Status out_of_scope inconsistente com hipótese principal. O caso deve ser tratado como fora do escopo e orientar especialidade."
+            return result
+
+    # Guardrail 3: hipóteses graves precisam de evidência mínima no contexto
     if hypothesis and analysis_status not in _ALLOWED_NONSUPPORTED_STATUSES:
         min_evidence_failure = _check_minimum_evidence_failure(hypothesis, context_text)
         if min_evidence_failure:
@@ -126,7 +155,7 @@ def validate_response(raw_response: str, context_text: str = "") -> dict:
             result["reason"] = min_evidence_failure
             return result
 
-    # Guardrail 3: se o caso é vago e o modelo não admitiu insuficiência de dados, bloquear falsa precisão
+    # Guardrail 4: se o caso é vago e o modelo não admitiu insuficiência de dados, bloquear falsa precisão
     if _looks_insufficient_data_case(context_text):
         if analysis_status != "insufficient_data":
             result["needs_escalation"] = True
@@ -209,6 +238,8 @@ def _looks_insufficient_data_case(context_text: str) -> bool:
         "mal-estar inespecifico",
         "tontura inespecifica",
         "dor toracica sem descricao",
+        "dor no peito intensa",
+        "dor no peito",
     ]
     if any(case in normalized for case in sparse_cases):
         return True
@@ -219,6 +250,7 @@ def _looks_insufficient_data_case(context_text: str) -> bool:
         "mal-estar",
         "tontura",
         "dor toracica",
+        "dor no peito",
     ]
     discriminators = [
         "febre", "rigidez de nuca", "fotofobia", "quadrante inferior direito", "qid",
@@ -237,9 +269,10 @@ def _check_minimum_evidence_failure(hypothesis: str, context_text: str) -> str |
     ctx = _normalize(context_text)
 
     for grave_hypothesis, evidence_markers in _GRAVE_HYPOTHESES_RULES.items():
-        if grave_hypothesis in hyp:
+        normalized_grave = _normalize(grave_hypothesis)
+        if normalized_grave in hyp:
             hits = sum(1 for marker in evidence_markers if marker in ctx)
-            required = 2 if grave_hypothesis not in {"apendicite", "síndrome coronariana aguda"} else 1
+            required = 2 if normalized_grave not in {_normalize("apendicite"), _normalize("síndrome coronariana aguda")} else 1
             if hits < required:
                 return (
                     f"Hipótese grave '{hypothesis}' sem evidência clínica mínima suficiente no contexto fornecido."
