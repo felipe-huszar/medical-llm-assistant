@@ -1,5 +1,5 @@
 {
-  "updated_at_utc": "2026-03-19T23:53:00Z",
+  "updated_at_utc": "2026-03-20T03:11:00Z",
   "tasks": [
     {
       "id": "system-gradio-benchmark-mode",
@@ -42,6 +42,12 @@
       "status": "done",
       "title": "Reduzir viés de insufficient_data e aceitar aliases úteis de status",
       "note": "generator 80/12/8, ancillary-missing supported cases, prompts updated, suspicious normalized"
+    },
+    {
+      "id": "selected-history-only",
+      "status": "done",
+      "title": "Enviar histórico ao prompt apenas quando consultas anteriores forem explicitamente selecionadas",
+      "note": "UI com multiselect; pipeline aceita selected_history; fallback implícito removido"
     }
   ]
 }

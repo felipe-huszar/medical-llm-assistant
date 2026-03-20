@@ -11,6 +11,7 @@ class ClinicalState(TypedDict, total=False):
     patient_profile: dict           # nome, idade, sexo, peso
     is_new_patient: bool
     consultation_history: list[str]
+    selected_history: list[str]
     doctor_question: str
     prompt: str
     raw_response: str

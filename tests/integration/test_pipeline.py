@@ -94,6 +94,22 @@ class TestRunConsultationExistingPatient:
         history2 = get_consultation_history(cpf)
         assert len(history2) == 2
 
+    def test_selected_history_is_used_but_unselected_history_is_not(self):
+        from src.rag.patient_rag import save_consultation
+        cpf = "HIST.PAT.002-00"
+        save_patient(cpf, {"nome": "History Select Test", "idade": 42, "sexo": "F", "peso": 66})
+        save_consultation(cpf, "Primeira consulta relevante", "Resposta anterior")
+        save_consultation(cpf, "Segunda consulta irrelevante", "Resposta anterior")
+
+        result = run_consultation(
+            cpf=cpf,
+            doctor_question="Nova consulta",
+            selected_history=["Primeira consulta relevante"],
+        )
+        prompt = result["prompt"]
+        assert "Primeira consulta relevante" in prompt
+        assert "Segunda consulta irrelevante" not in prompt
+
 
 class TestPipelineSafetyIntegration:
     def test_escalation_path_for_invalid_response(self, monkeypatch):

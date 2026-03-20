@@ -78,6 +78,7 @@ def run_consultation(
     llm: Any = None,
     patient_profile: dict | None = None,
     benchmark_mode: bool | None = None,
+    selected_history: list[str] | None = None,
 ) -> ClinicalState:
     """
     Run the full consultation pipeline.
@@ -88,6 +89,7 @@ def run_consultation(
         llm: LLM instance (MockLLM or real). If None, factory is used.
         patient_profile: Optional profile to auto-register new patients.
         benchmark_mode: When True, disables history reuse and persistence for isolated evaluation.
+        selected_history: Explicitly selected previous consultations to add to prompt context.
 
     Returns:
         Final ClinicalState with 'final_answer'.
@@ -102,6 +104,7 @@ def run_consultation(
             "patient_profile": {},
             "is_new_patient": False,
             "consultation_history": [],
+            "selected_history": [],
             "prompt": "",
             "raw_response": "",
             "safety_passed": False,
@@ -113,6 +116,8 @@ def run_consultation(
 
     if benchmark_mode is None:
         benchmark_mode = os.environ.get("BENCHMARK_MODE", "false").lower() == "true"
+    if selected_history is None:
+        selected_history = []
 
     # Pre-register patient if profile provided and not yet in DB
     if patient_profile and not patient_exists(cpf):
@@ -126,6 +131,7 @@ def run_consultation(
         "patient_profile": {},
         "is_new_patient": False,
         "consultation_history": [],
+        "selected_history": selected_history,
         "prompt": "",
         "raw_response": "",
         "safety_passed": False,

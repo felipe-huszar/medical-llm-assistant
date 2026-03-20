@@ -45,6 +45,7 @@ def _base_state(**overrides) -> ClinicalState:
         "patient_profile": {},
         "is_new_patient": False,
         "consultation_history": [],
+        "selected_history": [],
         "prompt": "",
         "raw_response": "",
         "parsed_response": {},
@@ -124,10 +125,20 @@ class TestBuildPromptNode:
         assert "35" in result["prompt"]
         assert "F" in result["prompt"] or "62" in result["prompt"]
 
-    def test_prompt_contains_history(self):
-        """REQ-NODE-4: prompt includes consultation history."""
+    def test_prompt_does_not_include_unselected_consultation_history(self):
+        """REQ-NODE-4: previous consultations must not enter prompt unless explicitly selected."""
         state = _base_state(
             consultation_history=["Pergunta: dor X\nResposta: análise Y"],
+            selected_history=[],
+        )
+        result = build_prompt(state)
+        assert "dor X" not in result["prompt"]
+
+    def test_prompt_includes_selected_history_only(self):
+        """REQ-NODE-4: explicitly selected previous consultations are added to prompt history."""
+        state = _base_state(
+            consultation_history=["Pergunta: dor X\nResposta: análise Y"],
+            selected_history=["dor X"],
         )
         result = build_prompt(state)
         assert "dor X" in result["prompt"]

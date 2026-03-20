@@ -1,7 +1,7 @@
 # CHALLENGE_STATE
 
 ## updated_at_utc
-2026-03-19T23:53:00Z
+2026-03-20T03:11:00Z
 
 ## current_focus
 Implementar plano de correção de alucinações e diagnósticos errados em etapas por colab.
@@ -28,3 +28,5 @@ Implementar plano de correção de alucinações e diagnósticos errados em etap
 - Etapa 7 concluída: recalibração para reduzir conservadorismo excessivo.
 - Ajustes: status aliases (ex.: suspicious -> supported_hypothesis), prompts menos conservadores, gerador com 80/12/8 e casos supported_hypothesis com dados acessórios faltantes.
 - Testes executados: pytest -q tests/unit/test_safety_gate.py tests/unit/test_nodes.py (48 passed).
+- Etapa 8 concluída: histórico de consultas anteriores agora só entra no prompt quando selecionado explicitamente pelo médico; suporte a múltiplas seleções na UI.
+- Validação executada: py_compile + pytest -q tests/unit/test_nodes.py tests/integration/test_pipeline.py (35 passed).

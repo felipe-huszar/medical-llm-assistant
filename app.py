@@ -238,7 +238,7 @@ def _format_history_md(cpf: str) -> str:
 # Tab 2: Consulta
 # ---------------------------------------------------------------------------
 
-def run_consult(cpf: str, question: str, current_patient: dict | None):
+def run_consult(cpf: str, question: str, selected_history: list[str] | None, current_patient: dict | None):
     if not cpf or not cpf.strip():
         yield "", "⚠️ **CPF não informado.** Digite o CPF do paciente e clique em Carregar Paciente antes de consultar.", ""
         return
@@ -266,6 +266,7 @@ def run_consult(cpf: str, question: str, current_patient: dict | None):
             doctor_question=question,
             llm=_get_llm(),
             patient_profile=profile,
+            selected_history=selected_history or [],
         )
         # Atualiza histórico no accordion após a consulta ser salva
         history_md = _format_history_md(cpf)
@@ -349,9 +350,10 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
                 
                 # Dropdown para selecionar pergunta anterior
                 history_dropdown = gr.Dropdown(
-                    label="↪️ Reutilizar pergunta anterior",
+                    label="↪️ Consultas anteriores para adicionar ao histórico da análise",
                     choices=[],
-                    value=None,
+                    value=[],
+                    multiselect=True,
                     interactive=True,
                     visible=False,
                 )
@@ -369,38 +371,27 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
     def load_patient_for_consult(cpf: str):
         ok, cpf_or_err = _valid_cpf(cpf)
         if not ok:
-            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, "", "", gr.update(visible=False), gr.update(visible=False), gr.update(choices=[])
+            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, "", "", gr.update(visible=False), gr.update(visible=False), gr.update(choices=[], value=[])
         profile = get_patient(cpf_or_err)
         if not profile:
             return (
                 f"❌ Paciente **{cpf_or_err}** não encontrado.\n\n"
                 "👉 Registre o paciente na aba **👤 Paciente** antes de consultar.",
-                cpf_or_err, "", "", gr.update(visible=False), gr.update(visible=False), gr.update(choices=[])
+                cpf_or_err, "", "", gr.update(visible=False), gr.update(visible=False), gr.update(choices=[], value=[])
             )
         history_md = _format_history_md(cpf_or_err)
         history_questions = _get_history_questions(cpf_or_err)
         
         if history_questions:
-            choices = [q[0] for q in history_questions]
             return (
                 _profile_text(profile), cpf_or_err, history_md, "",
-                gr.update(visible=True), gr.update(visible=True), gr.update(choices=choices, value=None)
+                gr.update(visible=True), gr.update(visible=False), gr.update(choices=history_questions, value=[])
             )
         else:
             return (
                 _profile_text(profile), cpf_or_err, history_md, "",
-                gr.update(visible=False), gr.update(visible=False), gr.update(choices=[])
+                gr.update(visible=False), gr.update(visible=False), gr.update(choices=[], value=[])
             )
-
-    def use_history_question(selected_question: str, cpf: str):
-        """Retorna a pergunta completa correspondente ao resumo selecionado."""
-        if not selected_question or not cpf:
-            return ""
-        questions = _get_history_questions(cpf)
-        for display, full in questions:
-            if display == selected_question:
-                return full
-        return selected_question  # fallback
 
     load_patient_btn.click(
         fn=load_patient_for_consult,
@@ -409,16 +400,10 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
                  history_dropdown, use_history_btn],
     )
 
-    use_history_btn.click(
-        fn=use_history_question,
-        inputs=[history_dropdown, consult_cpf],
-        outputs=[question_input],
-    )
-
     # ── Consulta ────────────────────────────────────────────────────────────
     consult_btn.click(
         fn=run_consult,
-        inputs=[consult_cpf, question_input, current_patient],
+        inputs=[consult_cpf, question_input, history_dropdown, current_patient],
         outputs=[profile_display, answer_output, history_display],
         show_progress="full",
     )

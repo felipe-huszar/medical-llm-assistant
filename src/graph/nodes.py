@@ -88,12 +88,13 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
         Sintomas relatados:
         <queixa atual>
 
-    O campo "Histórico" no treinamento continha comorbidades (ex: "hipertensão, diabetes"),
-    NÃO respostas completas de consultas anteriores. Por isso injetamos apenas as
-    queixas passadas (1 linha cada), não as respostas do LLM.
+    O campo "Histórico" no treinamento continha comorbidades (ex: "hipertensão, diabetes")
+    e, quando útil, contexto clínico prévio explicitamente selecionado pelo médico.
+    Consultas anteriores recuperadas da lista ficam visíveis na UI, mas só entram no
+    prompt se forem selecionadas explicitamente.
     """
     profile = state.get("patient_profile", {})
-    history = state.get("consultation_history", [])
+    selected_history = state.get("selected_history", []) or []
     question = state.get("doctor_question", "")
 
     sexo  = profile.get("sexo", "N/A")
@@ -111,21 +112,18 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
     else:
         comorbidades_text = str(comorbidades).strip()
 
-    # Prioridade 2 (fallback): queixas anteriores do ChromaDB se não há comorbidades
-    if not comorbidades_text and history:
-        queixas = []
-        for entry in history:
-            for line in entry.split("\n"):
-                if line.startswith("Pergunta:"):
-                    q = line.replace("Pergunta:", "").strip()
-                    if q:
-                        queixas.append(q)
-                    break
-        comorbidades_text = "; ".join(queixas)
-
-    # Monta contexto no formato exato do treinamento, mas explicitando ausência de histórico
+    history_parts = []
     if comorbidades_text:
-        history_line = f"Histórico: {comorbidades_text}"
+        history_parts.append(comorbidades_text)
+
+    # Consultas anteriores só entram no prompt se forem selecionadas explicitamente pelo médico.
+    explicit_selected_history = [item.strip() for item in selected_history if str(item).strip()]
+    if explicit_selected_history:
+        history_parts.extend(explicit_selected_history)
+
+    # Monta contexto no formato do treinamento, mas sem reaproveitar histórico implicitamente.
+    if history_parts:
+        history_line = f"Histórico: {'; '.join(history_parts)}"
     else:
         history_line = "Histórico: não informado. Comorbidades registradas: nenhuma."
 
@@ -152,9 +150,10 @@ def build_prompt(state: ClinicalState) -> ClinicalState:
     prompt = f"{context_block}\n\n{guardrail_block}\n\nSintomas relatados:\n{question}"
 
     state["prompt"] = prompt
-    state["has_explicit_history"] = bool(comorbidades_text)
+    state["has_explicit_history"] = bool(history_parts)
     audit_log("node_executed", cpf=state["cpf"], node="build_prompt",
-              prompt_length=len(prompt), has_history=bool(comorbidades_text))
+              prompt_length=len(prompt), has_history=bool(history_parts),
+              selected_history_count=len(explicit_selected_history))
     return state
 
 
