@@ -2,14 +2,14 @@
   "url": "https://eedc3ec1cf1114c84a.gradio.live",
   "timestamp": "2026-03-22T20:51:40Z",
   "summary": {
-    "total": 62,
-    "passed": 51,
-    "pct": 82.3,
+    "total": 100,
+    "passed": 61,
+    "pct": 61.0,
     "by_category": {
       "A": {
-        "passed": 11,
-        "total": 22,
-        "pct": 50.0
+        "passed": 21,
+        "total": 60,
+        "pct": 35.0
       },
       "B": {
         "passed": 20,
@@ -524,6 +524,311 @@
       "passed": true,
       "reason": "✅ safety gate acionado | ⚠️ false escalation",
       "answer_preview": "⚠️ **Resposta requer revisão médica especializada.**\n\nMotivo: Status insufficient_data inconsistente com hipótese principal afirmativa. A hipótese principal deve permanecer indeterminada quando faltar"
+    },
+    {
+      "id": "B09",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['enxaqueca', 'migrânea']",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando dor torácica opressiva, febre baixa, dispneia progressiva.\n\n### 🎯 Hipótese Diagnóstica Pr",
+      "source": "missing_run"
+    },
+    {
+      "id": "B10",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'cefaleia tensional'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentou cefaleia em aperto bilateral, sem náusea, sem fotofbia, associada a estresse e tensão muscu",
+      "source": "missing_run"
+    },
+    {
+      "id": "B11",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'ave' | ⚠️ false escalation",
+      "answer_preview": "⚠️ **Resposta requer revisão médica especializada.**\n\nMotivo: Hipótese grave 'hemorragia subaracnoide' sem evidência clínica mínima suficiente no contexto fornecido.\n\nPor favor, encaminhe o paciente p",
+      "source": "missing_run"
+    },
+    {
+      "id": "B12",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'apendicite'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando dor no quadrante inferior direito, febre baixa, síncope, náuseas e vômitos. Dor abdominal",
+      "source": "missing_run"
+    },
+    {
+      "id": "B13",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['pancreatite', 'pancreatite aguda']",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando dor epigástrica em faixa irradiando para dorso, náuseas, vômitos, piora após refeição gor",
+      "source": "missing_run"
+    },
+    {
+      "id": "B14",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'gastroenterite'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando diarreia há 3 dias, náuseas, vômitos, cólicas abdominais difusas, febre baixa 37.8°C. His",
+      "source": "missing_run"
+    },
+    {
+      "id": "B15",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['refluxo', 'doença do refluxo'] | ⚠️ false escalation",
+      "answer_preview": "⚠️ **Resposta requer revisão médica especializada.**\n\nMotivo: Hipótese grave 'apendicite aguda' sem evidência clínica mínima suficiente no contexto fornecido.\n\nPor favor, encaminhe o paciente para ava",
+      "source": "missing_run"
+    },
+    {
+      "id": "B16",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['colecistite', 'colecistite aguda']",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando dor em hipocôndrio direito com irradiação para ombro, febre alta, náuseas após refeição g",
+      "source": "missing_run"
+    },
+    {
+      "id": "B17",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['dengue', 'dengue clássico'] | ⚠️ false escalation",
+      "answer_preview": "⚠️ **Resposta requer revisão médica especializada.**\n\nMotivo: Hipótese grave 'meningite bacteriana' sem evidência clínica mínima suficiente no contexto fornecido.\n\nPor favor, encaminhe o paciente para",
+      "source": "missing_run"
+    },
+    {
+      "id": "B18",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['pielonefrite', 'pielonefrite aguda']",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando febre alta, disúria, dor lombar em fossa renal direita, calafrios, urina turva.\n\n### 🎯 Hi",
+      "source": "missing_run"
+    },
+    {
+      "id": "B19",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'sepse'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando febre alta, calafrios, hipotensão arterial (PA 90/60), confusão mental, foco infeccioso p",
+      "source": "missing_run"
+    },
+    {
+      "id": "B20",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'herpes zoster'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando lesões vesiculares dolorosas em dermátomo torácico direito, precedidas de hiperestesia há",
+      "source": "missing_run"
+    },
+    {
+      "id": "B21",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'lombalgia'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando lombalgia há 4 dias após esforço físico, sem irradiação, sem déficit neurológico, piora c",
+      "source": "missing_run"
+    },
+    {
+      "id": "B22",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['hérnia de disco', 'hérnia discal'] | ⚠️ false escalation",
+      "answer_preview": "⚠️ **Resposta requer revisão médica especializada.**\n\nMotivo: Hipótese grave 'tromboembolismo pulmonar' sem evidência clínica mínima suficiente no contexto fornecido.\n\nPor favor, encaminhe o paciente ",
+      "source": "missing_run"
+    },
+    {
+      "id": "B23",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'ar'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando artralgia em grandes e pequenas articulações, rigidez matinal > 1 hora, FR positivo. Há 6",
+      "source": "missing_run"
+    },
+    {
+      "id": "B24",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'cistite'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando disúria, polaciúria, urgência miccional, urina turva. Sem outros sintomas relevantes.\n\n##",
+      "source": "missing_run"
+    },
+    {
+      "id": "B25",
+      "cat": "A",
+      "passed": true,
+      "reason": "✅ contém 'cólica renal'",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando dor em cólica intensa em flanco direito com irradiação para virilha, hematúria microscópi",
+      "source": "missing_run"
+    },
+    {
+      "id": "B26",
+      "cat": "A",
+      "passed": false,
+      "reason": "❌ nenhum de ['cetoacidose', 'cetoacidose diabética']",
+      "answer_preview": "## 🩺 Análise Clínica\n\n### 🧭 Status da Análise\nsupported_hypothesis\n\n### 📋 Resumo Clínico\nPaciente apresentando poliúria, polidipsia, náuseas, cetonúria. Histórico relevante: diabetes tipo 2, hipertens",
+      "source": "missing_run"
+    },
+    {
+      "id": "B27",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B28",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B29",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B30",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B31",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B32",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B33",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B34",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B35",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B36",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B37",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B38",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B39",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B40",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B41",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B42",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B43",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B44",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B45",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
+    },
+    {
+      "id": "B46",
+      "cat": "A",
+      "passed": false,
+      "reason": "API_ERROR: Client error '404 Not Found' for url 'https://eedc3ec1cf1114c84a.gradio.live/gradio_api/queue/join'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+      "answer_preview": "",
+      "source": "missing_run"
     }
-  ]
+  ],
+  "timestamp_updated": "2026-03-22T21:40:24Z"
 }
