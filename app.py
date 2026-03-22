@@ -238,9 +238,17 @@ def _format_history_md(cpf: str) -> str:
 # Tab 2: Consulta
 # ---------------------------------------------------------------------------
 
-def run_consult(cpf: str, question: str, selected_history: list[str] | None, current_patient: dict | None):
+_LOADING_STAGES = [
+    (0.15, "🔍 Buscando dados do paciente..."),
+    (0.35, "🧠 Construindo contexto clínico..."),
+    (0.60, "⚕️ Analisando com o modelo..."),
+    (0.85, "🛡️ Validando resposta..."),
+]
+
+def run_consult(cpf: str, question: str, selected_history: list[str] | None,
+                current_patient: dict | None, progress=gr.Progress(track_tqdm=False)):
     if not cpf or not cpf.strip():
-        yield "", "⚠️ **CPF não informado.** Digite o CPF do paciente e clique em Carregar Paciente antes de consultar.", ""
+        yield "", "⚠️ **CPF não informado.** Digite o CPF e clique em Carregar Paciente.", ""
         return
     ok, cpf_or_err = _valid_cpf(cpf)
     if not ok:
@@ -257,8 +265,9 @@ def run_consult(cpf: str, question: str, selected_history: list[str] | None, cur
         yield _profile_text(profile), "⚠️ Informe uma pergunta clínica.", ""
         return
 
-    # Mostra loading imediatamente
-    yield _profile_text(profile), "⏳ **Analisando caso clínico...** Isso pode levar 20-30 segundos.", ""
+    # Etapas de progresso visíveis no topo da tela (progress bar nativa do Gradio)
+    for pct, label in _LOADING_STAGES[:-1]:
+        progress(pct, desc=label)
 
     try:
         result = run_consultation(
@@ -268,8 +277,9 @@ def run_consult(cpf: str, question: str, selected_history: list[str] | None, cur
             patient_profile=profile,
             selected_history=selected_history or [],
         )
-        # Atualiza histórico no accordion após a consulta ser salva
+        progress(0.95, desc="🛡️ Validando resposta...")
         history_md = _format_history_md(cpf)
+        progress(1.0, desc="✅ Concluído")
         yield (
             _profile_text(result.get("patient_profile", profile)),
             result.get("final_answer", "Sem resposta."),
