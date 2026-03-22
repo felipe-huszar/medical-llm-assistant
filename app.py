@@ -284,13 +284,18 @@ def run_consult(cpf: str, question: str, selected_history: list[str] | None, cur
 # ---------------------------------------------------------------------------
 
 
-with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
+_CSS = """
 .gradio-container { max-width: 1200px !important; margin: 0 auto; }
 .tabitem { padding: 20px !important; }
 .generating { margin-top: 24px !important; }
 .progress-bar-wrap { margin-top: 20px !important; margin-bottom: 8px !important; }
 .eta-bar { margin-top: 20px !important; }
-""") as demo:
+/* Evita width jump durante loading */
+#answer-output { min-height: 80px; }
+#profile-display { min-height: 40px; }
+"""
+
+with gr.Blocks(title="Medical LLM Assistant") as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
     current_patient = gr.State(None)
@@ -342,7 +347,8 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
 
             profile_display = gr.Markdown(
                 "ℹ️ **Nenhum paciente carregado.** Digite o CPF e clique em **Carregar Paciente** — "
-                "ou registre na aba **👤 Paciente** primeiro."
+                "ou registre na aba **👤 Paciente** primeiro.",
+                elem_id="profile-display",
             )
 
             with gr.Accordion("📋 Histórico de consultas anteriores", open=False) as history_accordion:
@@ -365,39 +371,48 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
                 lines=4,
             )
             consult_btn   = gr.Button("🔬 Consultar", variant="primary", size="lg")
-            answer_output = gr.Markdown("")
+            answer_output = gr.Markdown("", elem_id="answer-output")
 
     # ── Botão Carregar Paciente (aba Consulta) ──────────────────────────────
     def load_patient_for_consult(cpf: str):
         ok, cpf_or_err = _valid_cpf(cpf)
         if not ok:
-            return "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, "", "", gr.update(visible=False), gr.update(visible=False), gr.update(choices=[], value=[])
+            return (
+                "⚠️ CPF inválido — deve ter 11 dígitos.", cpf_or_err, "", "",
+                gr.update(visible=False, choices=[], value=[]),
+                gr.update(visible=False),
+            )
         profile = get_patient(cpf_or_err)
         if not profile:
             return (
                 f"❌ Paciente **{cpf_or_err}** não encontrado.\n\n"
                 "👉 Registre o paciente na aba **👤 Paciente** antes de consultar.",
-                cpf_or_err, "", "", gr.update(visible=False), gr.update(visible=False), gr.update(choices=[], value=[])
+                cpf_or_err, "", "",
+                gr.update(visible=False, choices=[], value=[]),
+                gr.update(visible=False),
             )
         history_md = _format_history_md(cpf_or_err)
         history_questions = _get_history_questions(cpf_or_err)
-        
+
         if history_questions:
             return (
                 _profile_text(profile), cpf_or_err, history_md, "",
-                gr.update(visible=True), gr.update(visible=False), gr.update(choices=history_questions, value=[])
+                gr.update(visible=True, choices=history_questions, value=[]),
+                gr.update(visible=False),
             )
         else:
             return (
                 _profile_text(profile), cpf_or_err, history_md, "",
-                gr.update(visible=False), gr.update(visible=False), gr.update(choices=[], value=[])
+                gr.update(visible=False, choices=[], value=[]),
+                gr.update(visible=False),
             )
 
     load_patient_btn.click(
         fn=load_patient_for_consult,
         inputs=[consult_cpf],
-        outputs=[profile_display, consult_cpf, history_display, answer_output, 
+        outputs=[profile_display, consult_cpf, history_display, answer_output,
                  history_dropdown, use_history_btn],
+        show_progress="hidden",
     )
 
     # ── Consulta ────────────────────────────────────────────────────────────
@@ -409,18 +424,44 @@ with gr.Blocks(title="Medical LLM Assistant", theme=gr.themes.Soft(), css="""
     )
 
     # ── Eventos Tab 1 ───────────────────────────────────────────────────────
+    def lookup_patient_with_loading(cpf: str):
+        """Wrapper com estado de loading para busca de paciente.
+        Outputs: patient_status, new_patient_form, current_patient, consult_cpf, profile_display
+        """
+        yield "⏳ Buscando paciente...", gr.update(visible=False), None, "", ""
+        r = lookup_patient(cpf)
+        yield r[0], r[1], r[2], r[3], r[4]
+
     lookup_btn.click(
-        fn=lookup_patient,
+        fn=lookup_patient_with_loading,
         inputs=[cpf_input],
         outputs=[patient_status, new_patient_form, current_patient, consult_cpf, profile_display],
+        show_progress="hidden",
     )
 
+    def register_patient_with_loading(cpf, nome, idade, sexo, peso,
+                                       comorbidades_check, comorbidades_other):
+        """Wrapper com estado de loading para cadastro.
+        Outputs: patient_status, current_patient, consult_cpf, profile_display,
+                 question_input, tabs, answer_output
+        """
+        yield "⏳ Cadastrando paciente...", None, "", "", "", gr.update(selected=0), ""
+        r = register_patient(cpf, nome, idade, sexo, peso,
+                              comorbidades_check, comorbidades_other)
+        yield r[0], r[1], r[2], r[3], r[4], r[5], r[6]
+
     register_btn.click(
-        fn=register_patient,
+        fn=register_patient_with_loading,
         inputs=[cpf_input, nome_input, idade_input, sexo_input, peso_input,
                 comorbidades_check, comorbidades_other],
-        outputs=[patient_status, current_patient, consult_cpf, profile_display, question_input, tabs, answer_output],
+        outputs=[patient_status, current_patient, consult_cpf, profile_display,
+                 question_input, tabs, answer_output],
+        show_progress="hidden",
     )
 
 if __name__ == "__main__":
-    demo.queue().launch(share=False)
+    demo.queue().launch(
+        share=False,
+        theme=gr.themes.Soft(),
+        css=_CSS,
+    )
