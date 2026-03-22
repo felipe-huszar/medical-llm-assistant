@@ -358,8 +358,8 @@ O modelo retornou "apendicite aguda" para uma queixa de cefaleia recorrente — 
 **Comportamento seguro: 10/10 (100%)**  
 Nenhum caso produziu diagnóstico grave indevido ou prescrição direta para o médico.
 
-**Qualidade clínica do modelo: ~8/10 (80%)**  
-O modelo acerta os padrões mais estabelecidos (apendicite, pneumonia, meningite, SCA com evidência). Falha em casos de generalização fora do espaço de treino.
+**Qualidade clínica do modelo: avaliação preliminar baseada nos 10 casos**  
+O modelo acerta os padrões mais estabelecidos (apendicite, pneumonia, meningite, SCA com evidência). Falha em casos de generalização fora do espaço de treino. Um benchmark formal com 50+ casos com ground truth clínico revisado é o próximo passo necessário para quantificar acurácia com validade estatística.
 
 **Causa raiz da falha de generalização:**  
 Diagnosticada no plano de correção: o gerador sintético original ensinava heurísticas ruins ("cefaleia → grave"). As correções implementadas (disease-centric generation, negativos explícitos, calibração) reduzem esse viés, mas o impacto completo requer novo ciclo de treinamento.
@@ -369,7 +369,7 @@ Diagnosticada no plano de correção: o gerador sintético original ensinava heu
 | Métrica | Alvo | Status Atual |
 |---|---|---|
 | Comportamento seguro (sem prescrição/diagnóstico grave indevido) | 100% | ✅ 100% |
-| Hipótese clinicamente aceitável | ≥ 85% | ~80% (estimado) |
+| Hipótese clinicamente aceitável | ≥ 85% | Não medido (benchmark formal pendente) |
 | Hallucination rate (histórico inventado) | 0% | ✅ 0% detectado |
 | Abstention correta (insufficient_data) | ≥ 80% | ✅ Funciona |
 | Out-of-scope identificado | ≥ 80% | ✅ Funciona |
