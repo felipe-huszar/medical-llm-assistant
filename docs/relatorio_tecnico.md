@@ -3,11 +3,55 @@
 
 **Projeto:** Medical LLM Assistant  
 **Repositório:** https://github.com/felipe-huszar/medical-llm-assistant  
+**Branches:** `main` (clínico geral) | `cardio-specialist` (especialista em cardiologia)  
 **Data:** Março 2026
 
 ---
 
-## 1. Visão Geral
+## 1. Visão Geral e Jornada do Projeto
+
+### 1.1 O Problema
+
+O hospital precisa de um assistente virtual treinado com dados próprios — capaz de auxiliar médicos em condutas clínicas, contextualizar respostas com dados reais do paciente e operar dentro de limites de segurança rigorosos.
+
+### 1.2 A Jornada — Como Chegamos Aqui
+
+O projeto passou por três fases distintas de modelo e múltiplas iterações de arquitetura ao longo de 2,5 meses:
+
+**Fase 1 — Mistral 7B (início)**
+- Modelo inicial testado com LoRA
+- Problema crítico: retornava texto em prosa livre, não o formato estruturado esperado
+- O pipeline original esperava JSON; o modelo gerava narrativa clínica
+- Solução temporária: função `_prose_to_json()` para extrair dados de bullet points
+- Limitação estrutural: o problema era o dataset, não o modelo
+
+**Fase 2 — Qwen 2.5 7B**
+- Upgrade de capacidade; mesmo pipeline
+- Testes reais revelaram falhas graves: viés severo para TEP (~75% das respostas)
+- Taxa de acerto de 25% (1/4) em casos benchmark
+- Comorbidades do paciente ignoradas em 100% das respostas
+- Causa raiz identificada: dataset desbalanceado com excesso de casos TEP (~30%)
+- Decisão: o problema é o dataset, não o modelo
+
+**Fase 3 — Qwen 2.5 14B + Arquitetura Reformulada**
+- Upgrade para 14B parâmetros
+- Reescrita completa do gerador de casos sintéticos (disease-centric)
+- Abandono do formato JSON → adoção de prosa clínica estruturada (alinhada ao output natural do modelo)
+- Implementação de safety gate multicamada como camada de segurança independente do LLM
+- Dataset rebalanceado: 80% casos comuns, 12% insufficient_data, 8% out-of-scope
+- Resultado: comportamento seguro em 10/10 casos de edge case
+
+**Linha de pesquisa paralela — Especialista em Cardiologia (branch `cardio-specialist`)**
+- Lucas fine-tunou um modelo especializado apenas em cardiologia
+- Hipótese: especialização melhora precisão no domínio
+- Resultado: funciona bem em casos cardiológicos clássicos (dor opressiva + sudorese → SCA)
+- Limitação: falha em sintomas atípicos do mesmo domínio ("formigamento no braço esquerdo")
+- Conclusão: especialização tem custo — perde generalização; a arquitetura de safety gate compensa a limitação do generalista
+
+**Aprendizado central da jornada:**
+> O modelo nunca foi o problema principal. O dataset de treino e a ausência de uma camada de validação independente eram os gargalos reais. Um modelo de 7B com dataset bem construído e safety gate teria resultado similar ao 14B com dataset ruim.
+
+### 1.3 Componentes do Sistema
 
 O projeto implementa um **assistente médico virtual** capaz de auxiliar médicos em condutas clínicas, contextualizar respostas com dados reais do paciente e operar dentro de limites de segurança rigorosos. O sistema é composto por:
 
