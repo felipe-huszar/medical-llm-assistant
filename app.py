@@ -295,7 +295,7 @@ def run_consult(cpf: str, question: str, selected_history: list[str] | None,
 
 
 _CSS = """
-.gradio-container { max-width: 1200px !important; margin: 0 auto; }
+.gradio-container { max-width: 900px !important; margin: 0 auto !important; }
 .tabitem { padding: 20px !important; }
 .generating { margin-top: 24px !important; }
 .progress-bar-wrap { margin-top: 20px !important; margin-bottom: 8px !important; }
@@ -305,7 +305,7 @@ _CSS = """
 #profile-display { min-height: 40px; }
 """
 
-with gr.Blocks(title="Medical LLM Assistant") as demo:
+with gr.Blocks(title="Medical LLM Assistant", fill_width=False) as demo:
     gr.Markdown("# 🏥 Medical LLM Assistant\nAssistente clínico com IA — diagnósticos e exames recomendados.")
 
     current_patient = gr.State(None)
