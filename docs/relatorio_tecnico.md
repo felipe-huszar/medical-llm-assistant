@@ -42,14 +42,25 @@ O projeto passou por três fases distintas de modelo e múltiplas iterações de
 - Resultado: comportamento seguro em 10/10 casos de edge case
 
 **Linha de pesquisa paralela — Especialista em Cardiologia (branch `cardio-specialist`)**
-- Lucas fine-tunou um modelo especializado apenas em cardiologia
-- Hipótese: especialização melhora precisão no domínio
-- Resultado: funciona bem em casos cardiológicos clássicos (dor opressiva + sudorese → SCA)
-- Limitação: falha em sintomas atípicos do mesmo domínio ("formigamento no braço esquerdo")
-- Conclusão: especialização tem custo — perde generalização; a arquitetura de safety gate compensa a limitação do generalista
 
-**Aprendizado central da jornada:**
-> O modelo nunca foi o problema principal. O dataset de treino e a ausência de uma camada de validação independente eram os gargalos reais. Um modelo de 7B com dataset bem construído e safety gate teria resultado similar ao 14B com dataset ruim.
+Enquanto a arquitetura do assistente geral era refinada, uma segunda frente explorou **especialização de domínio**:
+
+| Etapa | Ação | Resultado |
+|---|---|---|
+| 1 | Datasets públicos (inglês) + tentativas iniciais | Insatisfatório — idioma e domínio inadequados |
+| 2 | Gerador sintético próprio (5k casos) | Limitado — falta de conhecimento médico base |
+| 3 | Mix: 5k gerados + 5k MedPT, Mistral 7B | Ainda insatisfatório |
+| 4 | Treino em 2 fases + Qwen 2.5 7B | Melhora significativa |
+| 5 | Restruturação: 9k gerados + 6k MedPT (~400/especialidade) | Melhor generalização |
+| 6 | Upgrade Qwen 2.5 14B | Respostas mais consistentes |
+| 7 | Especialização em Cardiologia + guardrails de escopo | Assistente mais preciso e confiável na especialidade |
+
+Resultado: funciona bem em casos cardiológicos clássicos (dor opressiva + sudorese → SCA, encaminha corretamente casos não-cardiológicos). Limitação identificada: sintomas atípicos do mesmo domínio ("formigamento no braço esquerdo") requerem mais dados especializados.
+
+**Aprendizado central da jornada (comum às duas frentes):**
+> *"Os dados foram o fator mais crítico. A maior evolução veio do treinamento em duas fases, curadoria do dataset e especialização do domínio. A escolha do modelo impactou, mas os dados foram determinantes."* — Lucas Janzen
+
+> O modelo nunca foi o problema principal. O dataset de treino e a ausência de uma camada de validação independente eram os gargalos reais.
 
 ### 1.3 Componentes do Sistema
 
