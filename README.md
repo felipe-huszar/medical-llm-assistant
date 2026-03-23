@@ -3,7 +3,7 @@
 
 Versão especializada do assistente médico, fine-tuned exclusivamente com dados de **cardiologia**.
 
-> **Equipe:** Felipe Huszar · Lucas Janzen  
+> **Equipe:** Felipe Huszar · Lucas Janzen · Rodrigo Felizardo · Victor Henrique · Victor Souza  
 > Para o sistema clínico geral, veja a branch [`main`](https://github.com/felipe-huszar/medical-llm-assistant/tree/main).
 
 ---
