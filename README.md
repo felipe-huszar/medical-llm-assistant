@@ -1,81 +1,84 @@
-# Medical LLM Assistant — Tech Challenge Fase 3
+# Medical LLM Assistant — Especialista em Cardiologia
+## Tech Challenge Fase 3 — Branch `cardio-specialist`
 
-Assistente médico com LLM fine-tuned (Mistral via LoRA), orquestrado por **LangGraph** e memória via **ChromaDB**.
+Versão especializada do assistente médico, fine-tuned exclusivamente com dados de **cardiologia**.
+
+> **Equipe:** Felipe Huszar · Lucas Janzen  
+> Para o sistema clínico geral, veja a branch [`main`](https://github.com/felipe-huszar/medical-llm-assistant/tree/main).
+
+---
+
+## Sobre esta Branch
+
+Esta versão explora a hipótese de **especialização de domínio**: um modelo treinado exclusivamente em casos cardiológicos oferece maior precisão dentro do domínio ao custo de não lidar com outras especialidades.
+
+**Modelo:** Qwen 2.5 14B + LoRA, dataset focado em cardiologia  
+**Diferenças do generalista:**
+- Dataset de treino filtrado para casos cardíacos (SCA, FA, IC, HAS, dissecção aórtica, TEP, etc.)
+- Guardrail de escopo: casos não-cardiológicos são encaminhados para especialista
+- Safety gate adaptado para o contexto cardíaco
+
+---
+
+## Resultados Comparativos (Benchmark 100 casos)
+
+| Categoria | Generalista | Especialista Cardio |
+|-----------|-------------|---------------------|
+| Core cardiológico (10 casos) | 52% | **70%** |
+| Safety gate (prescrição direta) | **100%** | 20% |
+| Abstention / dados vagos | **100%** | 0% |
+| Fora de escopo | **100%** | ~30% |
+
+**Conclusão:** especialização melhora acurácia no domínio, mas enfraquece as camadas de segurança. O dataset de treino do especialista precisa incluir mais exemplos de recusa/abstention para equilibrar os trade-offs.
+
+---
 
 ## Arquitetura
 
-```
-[CPF input]
-     ↓
-[Nó 1] check_patient    → busca no ChromaDB por CPF
-     ↓
-[Nó 2] retrieve_history → histórico de consultas
-     ↓
-[Nó 3] build_prompt     → perfil + histórico + pergunta
-     ↓
-[Nó 4] llm_reasoning    → MockLLM ou modelo real (Mistral LoRA)
-     ↓
-[Nó 5] safety_gate      → validação: sem prescrição, confiança, fontes
-     ↓
-[Nó 6] save_and_format  → salva no ChromaDB + formata resposta
-        (ou escalation se falha no safety)
-```
+Mesma pipeline LangGraph de 7 nós da branch `main`. Ver [diagrama completo](docs/).
 
-## Estrutura de Arquivos
+---
+
+## Estrutura
 
 ```
-src/
-├── graph/
-│   ├── pipeline.py   ← StateGraph principal
-│   ├── nodes.py      ← funções de cada nó
-│   └── state.py      ← ClinicalState TypedDict
-├── rag/
-│   └── patient_rag.py  ← ChromaDB: salvar/buscar pacientes e consultas
-├── llm/
-│   ├── factory.py    ← MockLLM ou real (via USE_MOCK_LLM)
-│   ├── mock_llm.py   ← respostas canned realistas
-│   └── model_loader.py ← carrega LoRA do Drive (Colab)
-└── safety/
-    └── gate.py       ← regras de segurança
-
-data/
-└── patients_seed.json  ← 3 pacientes de exemplo
-
-app.py             ← Gradio UI (Tab Paciente + Tab Consulta)
-notebook.ipynb     ← Notebook Colab self-contained
-colabs/lucas/      ← Colabs-base do Lucas versionados no repo
+app.py                              ← Gradio UI adaptado para cardiologia
 requirements.txt
+
+colabs/specialist/
+├── system_gradio.ipynb             ← Colab do sistema especialista
+├── finetuning_cardio_specialist.ipynb  ← Fine-tuning cardiologia
+└── gerador_casos_cardio_specialist.ipynb ← Gerador de casos cardíacos
+
+src/                                ← Pipeline (idêntico ao main)
+tests/                              ← Testes
+data/patients_seed.json
 ```
 
-## Uso Rápido
+---
+
+## Como Executar
+
+### Colab (modelo real)
+
+Abra `colabs/specialist/system_gradio.ipynb` no Google Colab:
+
+[Abrir no Colab](https://colab.research.google.com/github/felipe-huszar/medical-llm-assistant/blob/cardio-specialist/colabs/specialist/system_gradio.ipynb)
+
+### Local (MockLLM)
 
 ```bash
-# Modo mock (sem GPU)
+pip install -r requirements.txt
 USE_MOCK_LLM=true python app.py
-
-# Modo real (requer modelo LoRA no Drive)
-USE_MOCK_LLM=false MODEL_PATH=/content/drive/MyDrive/medical_llm_lora python app.py
 ```
 
-## Colab
-
-Abra `notebook.ipynb` no Google Colab e execute as células em ordem.
-Para usar o modelo real, defina `USE_MOCK_LLM = 'false'` na célula de config
-e certifique-se de que o adapter LoRA está montado no Drive.
-
-## Safety Gate
-
-- `recommendation_type == "prescription"` → escalação automática  
-- `confidence < 0.4` → escalação automática  
-- `sources` vazio → resposta inválida → escalação  
-- Nunca retorna prescrição direta
+---
 
 ## Variáveis de Ambiente
 
 | Variável | Padrão | Descrição |
-|---|---|---|
+|----------|--------|-----------|
 | `USE_MOCK_LLM` | `true` | Usar MockLLM em vez do modelo real |
-| `MODEL_PATH` | — | Caminho do adapter LoRA (necessário se mock=false) |
-| `BASE_MODEL_ID` | `mistralai/Mistral-7B-Instruct-v0.1` | Modelo base HuggingFace |
-| `CHROMA_DB_PATH` | `./chroma_db` | Diretório de persistência ChromaDB |
-# Notebook atualizado em 2026-03-16T18:48:40Z
+| `MODEL_PATH` | — | Caminho do adapter LoRA cardíaco |
+| `BASE_MODEL_ID` | `Qwen/Qwen2.5-14B-Instruct` | Modelo base |
+| `CHROMA_DB_PATH` | `./chroma_db` | Persistência ChromaDB |
