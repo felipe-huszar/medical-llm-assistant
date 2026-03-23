@@ -2,7 +2,7 @@
 
 Assistente médico virtual com **LLM fine-tuned** (Qwen 2.5 14B + LoRA), orquestrado por **LangGraph** e memória contextual via **ChromaDB**.
 
-> **Equipe:** Felipe Huszar · Lucas Janzen  
+> **Equipe:** Felipe Huszar · Lucas Janzen · Rodrigo Felizardo · Victor Henrique · Victor Souza  
 > **Disciplinas:** Pós-Tech IA para Devs — FIAP
 
 ---
